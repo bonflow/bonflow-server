@@ -1,0 +1,17 @@
+name: label-sync
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 1"   # weekly, Monday
+permissions:
+  contents: read
+  issues: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: EndBug/label-sync@v2   # pin to a commit SHA
+        with:
+          config-file: https://raw.githubusercontent.com/bonflow/.github/main/labels.yml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          delete-other-labels: false

@@ -132,6 +132,7 @@ class PrintingTests {
             await().atMost(Duration.ofSeconds(15)).until(() -> jobs.count() == 1);
             dispatcher.dispatchDue();
 
+            await().atMost(Duration.ofSeconds(5)).until(() -> printer.received().size() == 1);
             assertThat(printer.received()).singleElement().satisfies(bytes -> {
                 String text = new String(bytes, CP858);
                 assertThat(text).contains("BESTELLUNG", "Tisch T7", "Anna", "3x Bier", "ohne Schaum");
@@ -166,7 +167,7 @@ class PrintingTests {
         try (FakePrinter printer = FakePrinter.start(port)) {
             jdbc.update("update print_job set next_attempt_at = now() - interval '1 second'");
             dispatcher.dispatchDue();
-            assertThat(printer.received()).hasSize(1);
+            await().atMost(Duration.ofSeconds(5)).until(() -> printer.received().size() == 1);
             assertThat(jobs.findAll()).singleElement()
                     .satisfies(job -> assertThat(job.getStatus()).isEqualTo(PrintJobStatus.SENT));
         }

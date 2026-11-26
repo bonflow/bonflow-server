@@ -1,5 +1,7 @@
 package ch.bonflow.ui.admin;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.Area;
 import ch.bonflow.masterdata.AreaRepository;
 import com.vaadin.flow.component.formlayout.FormLayout;
@@ -13,8 +15,9 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed({"ADMIN", "MANAGER"})
 public class AreasView extends CrudView<Area> {
 
-    public AreasView(AreaRepository areas) {
+    public AreasView(AreaRepository areas, MasterDataTransferService transfer) {
         super("Bereiche", areas, Area::new);
+        enableTransfer(transfer, TransferSection.AREAS);
         init();
     }
 

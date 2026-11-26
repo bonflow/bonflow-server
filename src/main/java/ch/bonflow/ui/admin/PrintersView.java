@@ -1,5 +1,7 @@
 package ch.bonflow.ui.admin;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.Printer;
 import ch.bonflow.masterdata.PrinterProtocol;
 import ch.bonflow.masterdata.PrinterRepository;
@@ -26,9 +28,10 @@ public class PrintersView extends CrudView<Printer> {
 
     private final PrintAdminService printAdmin;
 
-    public PrintersView(PrinterRepository printers, PrintAdminService printAdmin) {
+    public PrintersView(PrinterRepository printers, PrintAdminService printAdmin, MasterDataTransferService transfer) {
         super("Drucker", printers, Printer::new);
         this.printAdmin = printAdmin;
+        enableTransfer(transfer, TransferSection.PRINTERS);
         init();
     }
 

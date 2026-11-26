@@ -2,6 +2,8 @@ package ch.bonflow.ui.admin;
 
 import java.util.stream.Collectors;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.Printer;
 import ch.bonflow.masterdata.PrinterRepository;
 import ch.bonflow.masterdata.Station;
@@ -27,9 +29,11 @@ public class StationsView extends CrudView<Station> {
 
     private final PrinterRepository printers;
 
-    public StationsView(StationRepository stations, PrinterRepository printers) {
+    public StationsView(StationRepository stations, PrinterRepository printers,
+            MasterDataTransferService transfer) {
         super("Stationen", stations, Station::new);
         this.printers = printers;
+        enableTransfer(transfer, TransferSection.PRINTERS, TransferSection.STATIONS);
         init();
     }
 

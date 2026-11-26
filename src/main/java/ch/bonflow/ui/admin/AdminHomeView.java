@@ -1,10 +1,16 @@
 package ch.bonflow.ui.admin;
 
+import java.util.List;
+
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.printing.PrintAdminService;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -17,8 +23,10 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed({"ADMIN", "MANAGER"})
 public class AdminHomeView extends VerticalLayout {
 
-    public AdminHomeView(PrintAdminService printAdmin) {
+    public AdminHomeView(PrintAdminService printAdmin, MasterDataTransferService transfer) {
         add(new H1("BonFlow Admin"), new Paragraph("Stammdaten verwalten: Bereiche, Tische, Drucker, Stationen, Kategorien, Artikel und Modifier."));
+        add(new Button("Stammdaten importieren / exportieren", VaadinIcon.EXCHANGE.create(),
+                e -> new TransferDialog(transfer, List.of(TransferSection.values()), () -> { }).open()));
         if (printAdmin.anyPrinterOffline()) {
             Div warning = new Div(new Span("⚠ Mindestens ein Drucker ist nicht erreichbar. "),
                     new RouterLink("Druck-Status ansehen", PrintStatusView.class));

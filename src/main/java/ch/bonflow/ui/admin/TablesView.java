@@ -1,5 +1,7 @@
 package ch.bonflow.ui.admin;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.Area;
 import ch.bonflow.masterdata.AreaRepository;
 import ch.bonflow.masterdata.DiningTable;
@@ -19,9 +21,10 @@ public class TablesView extends CrudView<DiningTable> {
 
     private final AreaRepository areas;
 
-    public TablesView(DiningTableRepository tables, AreaRepository areas) {
+    public TablesView(DiningTableRepository tables, AreaRepository areas, MasterDataTransferService transfer) {
         super("Tische", tables, DiningTable::new);
         this.areas = areas;
+        enableTransfer(transfer, TransferSection.AREAS, TransferSection.TABLES);
         init();
     }
 

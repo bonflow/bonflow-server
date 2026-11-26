@@ -13,7 +13,8 @@ public record MasterDataSnapshot(
         List<StationDto> stations,
         List<CategoryDto> categories,
         List<ArticleDto> articles,
-        List<ModifierGroupDto> modifierGroups) {
+        List<ModifierGroupDto> modifierGroups,
+        SettingsDto settings) {
 
     /** {@code color} is {@code #RRGGBB} or null. */
     public record AreaDto(long id, String name, String color) {
@@ -39,5 +40,9 @@ public record MasterDataSnapshot(
     }
 
     public record ModifierDto(long id, String name) {
+    }
+
+    /** Venue wide settings the app has to follow. */
+    public record SettingsDto(boolean coursesEnabled) {
     }
 }

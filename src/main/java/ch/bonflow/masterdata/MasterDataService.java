@@ -19,16 +19,18 @@ public class MasterDataService {
     private final ArticleCategoryRepository categories;
     private final ArticleRepository articles;
     private final ModifierGroupRepository modifierGroups;
+    private final SettingsService settings;
 
     MasterDataService(AreaRepository areas, DiningTableRepository tables, StationRepository stations,
             ArticleCategoryRepository categories, ArticleRepository articles,
-            ModifierGroupRepository modifierGroups) {
+            ModifierGroupRepository modifierGroups, SettingsService settings) {
         this.areas = areas;
         this.tables = tables;
         this.stations = stations;
         this.categories = categories;
         this.articles = articles;
         this.modifierGroups = modifierGroups;
+        this.settings = settings;
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +71,8 @@ public class MasterDataService {
                                 g.getModifiers().stream()
                                         .map(m -> new MasterDataSnapshot.ModifierDto(m.getId(), m.getName()))
                                         .toList()))
-                        .toList());
+                        .toList(),
+                new MasterDataSnapshot.SettingsDto(settings.coursesEnabled()));
     }
 
     /**

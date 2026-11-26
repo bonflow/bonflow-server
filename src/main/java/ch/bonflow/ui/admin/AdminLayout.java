@@ -63,6 +63,7 @@ public class AdminLayout extends AppLayout {
                 new SideNavItem("Modifier", ModifierGroupsView.class, VaadinIcon.OPTIONS.create()),
                 new SideNavItem("Mitarbeitende", WaitersView.class, VaadinIcon.USERS.create()),
                 new SideNavItem("Konten", AccountsView.class, VaadinIcon.KEY.create()),
+                new SideNavItem("Einstellungen", SettingsView.class, VaadinIcon.SLIDERS.create()),
                 new SideNavItem("Bestellungen", OrdersView.class, VaadinIcon.LIST.create()),
                 new SideNavItem("Druck-Status", PrintStatusView.class, VaadinIcon.PRINT.create()));
 

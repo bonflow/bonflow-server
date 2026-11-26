@@ -30,10 +30,6 @@ server:
   port: 8080
   forward-headers-strategy: framework # behind Caddy/nginx
 
-vaadin:
-  # Vaadin 24 + Spring Boot: exclude static/API paths from the Vaadin servlet mapping.
-  urlMapping: /*
-
 management:
   endpoints:
     web:

@@ -8,7 +8,7 @@ The design is in [docs/architecture.md](docs/architecture.md).
 
 ## Stack
 
-Java 21, Spring Boot 3.5, Vaadin 24, Spring Modulith, PostgreSQL + Flyway, Spring Security
+Java 25 (LTS), Spring Boot 4.1, Vaadin 25, Spring Modulith 2, PostgreSQL 18 + Flyway, Spring Security
 (JWT for `/api`, session login for Vaadin), springdoc-openapi, escpos-coffee. Build: Maven.
 
 ## Modules (`ch.example.bonflow.*`)
@@ -18,11 +18,11 @@ Java 21, Spring Boot 3.5, Vaadin 24, Spring Modulith, PostgreSQL + Flyway, Sprin
 
 ## Run locally
 
-You need Java 21, Docker (PostgreSQL) and Node.js (Vaadin frontend).
+You need Java 25, Docker (PostgreSQL) and Node.js 24+ (Vaadin frontend).
 
 ```bash
 docker run -d --name bonflow-db -p 5432:5432 \
-  -e POSTGRES_DB=bonflow -e POSTGRES_USER=bonflow -e POSTGRES_PASSWORD=bonflow postgres:16-alpine
+  -e POSTGRES_DB=bonflow -e POSTGRES_USER=bonflow -e POSTGRES_PASSWORD=bonflow postgres:18-alpine
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
@@ -58,3 +58,18 @@ Skeleton only: build, module layout, baseline schema (`V1__baseline.sql`), secur
 placeholder Vaadin views, Docker and CI. Domain logic (entities, `OrderService`, routing,
 printing, display broadcaster, REST controllers) is the next step, in the order of the phasing
 in the architecture document.
+
+## Versions
+
+| Component | Version | Note |
+|---|---|---|
+| Java | 25 (LTS) | |
+| Spring Boot | 4.1.3 | Vaadin 25.3 is built on Boot 4.1. Move to Boot 4.2 together with Vaadin 25.4 once it is GA. |
+| Vaadin | 25.3.6 | |
+| Spring Modulith | 2.1.2 | |
+| springdoc-openapi | 3.1.1 | 3.x is the Boot 4 line |
+| PostgreSQL | 18 | |
+| Testcontainers | 2.x (managed by Boot) | artifact and class names differ from 1.x |
+
+Nothing here has been compiled yet (see "Status"); expect to fix small API differences on the first
+`mvn verify`.

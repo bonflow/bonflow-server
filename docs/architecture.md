@@ -1,5 +1,9 @@
 # BonFlow — Architecture Proposal for a Restaurant & Venue Ordering System
 
+> **Note (Nov 2026):** the stack was updated from the original proposal (Java 21, Spring Boot 3.x, Vaadin 24.x) to
+> Java 25 LTS, Spring Boot 4.1, Vaadin 25 and Spring Modulith 2. Spring Boot 3.5 left OSS support on 2026-06-30.
+> The design below is unchanged.
+
 ## Context
 Servers on the floor take orders on a phone (Flutter app). Once an order is completed (submitted) it must be
 split by station (drinks, kitchen, …), printed on receipt printers at those stations, and shown live on
@@ -41,7 +45,7 @@ are on the local network anyway). Internal module boundaries keep the option to 
 
 ## 2. Repositories
 
-### `bonflow-server` (Java 21, Spring Boot 3.x, Vaadin 24.x, Maven)
+### `bonflow-server` (Java 25, Spring Boot 4.1, Vaadin 25, Maven)
 Package-by-feature, enforced with **Spring Modulith** (module boundaries + event publication registry):
 
 ```

@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import ch.bonflow.display.DisplayService;
 import ch.bonflow.display.OrderDetail;
+import ch.bonflow.masterdata.ArticleRepository;
 import ch.bonflow.masterdata.DiningTable;
 import ch.bonflow.masterdata.DiningTableRepository;
 import ch.bonflow.ordering.OrderFilter;
@@ -34,7 +35,10 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 
-/** Read-only order history with filters; tickets can be printed again from the detail dialog. */
+/**
+ * Order history with filters; tickets can be printed again from the detail dialog, and new orders can be
+ * created on behalf of a waiter.
+ */
 @Route(value = "admin/orders", layout = AdminLayout.class)
 @PageTitle("Bestellungen | BonFlow Admin")
 @RolesAllowed({"ADMIN", "MANAGER"})
@@ -55,7 +59,7 @@ public class OrdersView extends VerticalLayout {
     private final ComboBox<OrderStatus> status = new ComboBox<>("Status");
 
     public OrdersView(OrderService orders, DisplayService display, PrintAdminService printAdmin,
-            DiningTableRepository tables, AppUserRepository users) {
+            DiningTableRepository tables, AppUserRepository users, ArticleRepository articles) {
         this.orders = orders;
         this.display = display;
         this.printAdmin = printAdmin;
@@ -85,7 +89,11 @@ public class OrdersView extends VerticalLayout {
         grid.addColumn(o -> o.note() == null ? "" : o.note()).setHeader("Notiz").setFlexGrow(2);
         grid.addItemClickListener(e -> openDetail(e.getItem().id()));
 
-        add(new H2("Bestellungen"), filters, grid,
+        Button create = new Button("Neue Bestellung", VaadinIcon.PLUS.create(),
+                e -> new NewOrderDialog(orders, tables, users, articles, this::refresh).open());
+        create.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        add(new H2("Bestellungen"), create, filters, grid,
                 new Paragraph("Neueste zuerst, höchstens " + LIMIT + " Einträge."));
         refresh();
     }

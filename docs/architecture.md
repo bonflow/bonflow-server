@@ -1,17 +1,22 @@
-# BonFlow — Architecture Proposal for a Restaurant & Venue Ordering System
+# BonFlow — Architecture
 
-> **Note (Nov 2026):** the stack was updated from the original proposal (Java 21, Spring Boot 3.x, Vaadin 24.x) to
-> Java 25 LTS, Spring Boot 4.1, Vaadin 25 and Spring Modulith 2. Spring Boot 3.5 left OSS support on 2026-06-30.
-> The design below is unchanged.
+Architecture of the BonFlow restaurant & venue ordering system **as built** (server v0.1.x, app 0.1).
+The design started as a proposal; this document now describes what exists, and the last section lists
+what is not built yet.
 
 ## Context
-Servers on the floor take orders on a phone (Flutter app). Once an order is completed (submitted) it must be
-split by station (drinks, kitchen, …), printed on receipt printers at those stations, and shown live on
-station displays. Payment is handled outside this system. An admin UI manages master data (tables,
-articles, categories, app users). Stack: Java/Spring backend, Vaadin for admin + station displays,
-REST API for Flutter. Two repos: `bonflow-server` (Spring + Vaadin) and `bonflow-app` (Flutter).
+Servers on the floor take orders on a phone (Flutter app). Once an order is submitted it is split by
+station (drinks, kitchen, …), printed on receipt printers at those stations, and shown live on station
+displays. Payment is handled outside this system and there is no interface to a payment system. An admin
+UI manages master data (tables, articles, categories, users). Stack: Java/Spring backend, Vaadin for admin
+and station displays, REST API for Flutter. Two repos: `bonflow-server` (Spring + Vaadin) and `bonflow-app`
+(Flutter).
 
-This is a greenfield proposal; nothing in the current workspace (`java/` PROJ checkout) is reused.
+**Decisions:** one venue per installation (no multi-tenancy), on-premise deployment in the venue LAN,
+Epson TM / ESC/POS printers over the network, waiter login by PIN on shared phones.
+
+**Stack:** Java 25 (LTS), Spring Boot 4.1, Vaadin 25, Spring Modulith 2, PostgreSQL 18 + Flyway, Spring
+Security, springdoc-openapi, escpos-coffee, Maven. The base package is `ch.bonflow` (domain bonflow.ch).
 
 ---
 
@@ -20,7 +25,7 @@ This is a greenfield proposal; nothing in the current workspace (`java/` PROJ ch
 ```
  ┌──────────────┐  HTTPS/REST (JSON, JWT)   ┌──────────────────────────────────────────────┐
  │ Flutter app  │ ────────────────────────► │ bonflow-server (Spring Boot, one deployable) │
- │ (servers'    │ ◄──── SSE / polling ───── │                                              │
+ │ (servers'    │ ◄────── polling ──────── │                                              │
  │  phones)     │                           │  ┌──────────┐  ┌───────────┐  ┌───────────┐ │
  └──────────────┘                           │  │ REST API │  │ Vaadin    │  │ Vaadin    │ │
                                             │  │ /api/v1  │  │ Admin UI  │  │ Station   │ │
@@ -38,7 +43,7 @@ This is a greenfield proposal; nothing in the current workspace (`java/` PROJ ch
  └──────────────┘                           └──────────────────────────────────────────────┘
 ```
 
-**Recommendation: a modular monolith.** One Spring Boot application hosts REST API, Vaadin admin and
+**A modular monolith.** One Spring Boot application hosts REST API, Vaadin admin and
 Vaadin station displays. A venue's load (tens of phones, a handful of stations) does not justify
 microservices; one deployable is simpler to run on-premise (a small server/NUC in the venue — printers
 are on the local network anyway). Internal module boundaries keep the option to split later.
@@ -46,134 +51,162 @@ are on the local network anyway). Internal module boundaries keep the option to 
 ## 2. Repositories
 
 ### `bonflow-server` (Java 25, Spring Boot 4.1, Vaadin 25, Maven)
-Package-by-feature, enforced with **Spring Modulith** (module boundaries + event publication registry):
+Package-by-feature, enforced by **Spring Modulith** (`ModularityTests` verify the module boundaries; the
+JDBC event publication registry is the transactional outbox):
 
 ```
 ch.bonflow
-├── masterdata/      Table, Area, Article, ArticleCategory, Station, Printer, ModifierGroup
-├── users/           AppUser (waiters), AdminUser, roles, PIN/password handling
-├── ordering/        Order, OrderItem, OrderService, state machine, domain events
-├── routing/         Category/Article → Station mapping, splits an order into StationTickets
-├── printing/        Printer adapters (ESC/POS over TCP), print job outbox, retry worker
-├── display/         Live ticket state for station screens, broadcaster
-├── api/             REST controllers + DTOs (/api/v1/...), OpenAPI spec
-├── ui/admin/        Vaadin admin views (CRUD)
-├── ui/station/      Vaadin station display views
-└── security/        Spring Security config: JWT for /api, session login for Vaadin
+├── masterdata/      Area, DiningTable, ArticleCategory, Article, ModifierGroup/Modifier, Station, Printer;
+│                    MasterDataService + MasterDataSnapshot (served by the API)
+├── users/           AppUser (waiters: PIN, lockout), AdminUser (web UI accounts incl. station devices)
+├── ordering/        CustomerOrder, OrderItem, OrderService, events (OrderSubmitted), OrderFilter/OrderSummary
+├── routing/         Article → station mapping, StationTicket (NEW/ADDITION/STORNO), TicketService, TicketStatusChanged
+├── printing/        TicketRenderer + EscPosBuilder, PrintJob outbox, PrintDispatcher (worker),
+│                    TcpPrinterGateway, PrintAdminService (test print, reprint), PrintMonitor
+├── display/         DisplayService, StationBroadcaster (Vaadin push), StationBoard/TicketCard
+├── api/             REST controllers + DTOs (/api/v1), exception handler (RFC 9457), OpenAPI config
+├── ui/admin/        Vaadin admin views
+├── ui/station/      StationView (station display)
+└── security/        Spring Security: JWT for /api, session login for Vaadin; TokenService, JwtKeys
 ```
 
 ### `bonflow-app` (Flutter)
-- Feature-first structure (`login/`, `tables/`, `order/`, `menu/`), state via Riverpod or Bloc.
-- **API client generated from the server's OpenAPI spec** (`openapi-generator` dart-dio) — the spec is the
-  contract between the two repos; the server publishes it as a versioned artifact / in CI.
-- Local cache of master data (articles, categories, tables) with a version/ETag check, so the menu works
-  fast and survives brief Wi-Fi drops.
+- Feature-first (`auth`, `login`, `masterdata`, `tables`, `order`, `menu`), state with **Riverpod 3**
+  (Notifier), navigation with go_router (redirect by session state), HTTP with Dio.
+- **API access through hand-written repositories**, not a generated client. The contract with the server
+  is guarded by a **contract test** (`test/contract`): the real repositories run against a snapshot of the
+  server's OpenAPI spec (published with each release as `openapi-vX.Y.Z.json`); a weekly workflow checks the
+  latest release.
+- **Master data cache** on the device with the server's `ETag` (`If-None-Match` → 304), so the menu works
+  fast and survives Wi-Fi drops.
+- **Offline queue for new orders:** if the server is unreachable, a new order is stored on the device and
+  sent later (every 20 s, on pull-to-refresh, after restart). The client-generated order UUID makes retries
+  idempotent. Follow-up orders, storno and completion need the server.
+- Tokens are kept in secure storage; a 401 triggers one refresh and a retry, otherwise the waiter is logged out.
 
 ## 3. Domain model (core)
 
-| Entity | Key fields |
+Tables of the baseline schema (`V1__baseline.sql`, later migrations add `done_at` on tickets and the
+`STATION` role):
+
+| Entity (table) | Key fields |
 |---|---|
-| `Area` | name (e.g. Terrace, Hall) |
-| `Table` | number/label, area, active |
+| `Area` (`area`) | name (e.g. Terrace, Hall) |
+| `DiningTable` (`dining_table`) | label, area, active |
 | `ArticleCategory` | name, sort order, **default station**, parent (optional) |
-| `Article` | name, short name (for printing), category, price (informational, payment is external), active, **station override (optional)**, modifier groups |
-| `ModifierGroup` / `Modifier` | e.g. "Cooking: rare/medium", "extra cheese" |
-| `Station` | name (Kitchen, Bar, …), printer(s), has display |
+| `Article` | name, short name (for printing), category, price (informational), active, **station override (optional)**, modifier groups |
+| `ModifierGroup` / `Modifier` | name, single/multi select; modifiers of a group |
+| `Station` | name (Kitchen, Bar, …), has display, printers (`station_printer`) |
 | `Printer` | name, host, port, protocol (ESC/POS), paper width, enabled |
-| `AppUser` | display name, login/PIN, active, roles (WAITER) |
-| `AdminUser` | username, password hash, role (ADMIN/MANAGER) |
-| `Order` | id (UUID, client-generated → idempotent), table, waiter, status, createdAt, submittedAt, note |
-| `OrderItem` | article, qty, modifiers, free-text note, course, status |
-| `StationTicket` | order, station, items, status (NEW → IN_PROGRESS → DONE), printedAt |
-| `PrintJob` | ticket, printer, payload, status, attempts, lastError |
+| `AppUser` (`app_user`) | display name, login, PIN hash, active, role WAITER |
+| `AdminUser` (`admin_user`) | username, password hash, role ADMIN / MANAGER / STATION |
+| `CustomerOrder` | id (UUID, client-generated → idempotent), table, waiter, status, createdAt, submittedAt, note, `@Version` |
+| `OrderItem` | article, quantity, modifiers (`order_item_modifier`), note, course, submission no., status ACTIVE / CANCELLED |
+| `StationTicket` | order, station, submission no., kind NEW / ADDITION / STORNO, status NEW → IN_PROGRESS → DONE, printedAt, doneAt, items (`station_ticket_item`), `@Version` |
+| `PrintJob` | ticket, printer, payload (ESC/POS bytes), status PENDING / SENT / FAILED, attempts, lastError, nextAttemptAt |
 
-**Routing rule:** item's station = `article.stationOverride ?? category.defaultStation`. On submit,
-an order is split into one `StationTicket` per station involved.
+**Routing rule:** an item's station = `article.stationOverride ?? category.defaultStation`. On submit, an order
+is split into one `StationTicket` per station involved.
 
-**Order lifecycle:** `DRAFT` (only on phone, optional server-side) → `SUBMITTED` → (tickets processed) →
-`COMPLETED` / `CANCELLED`. Additional items for the same table are a **new submission** (new tickets
-labelled "Nachbestellung/addition"), never edits of already-printed tickets. Cancellations of
-printed items produce a "STORNO" ticket at the station.
+**Order lifecycle:** `SUBMITTED` → `COMPLETED` (explicit completion by the waiter) or `CANCELLED`. A follow-up
+order for the same table is a **new submission** (`submissionNo` + 1, tickets of kind `ADDITION`), never an
+edit of already printed tickets; the client sends the number it expects and gets `409` if another submission
+came first. Cancelling an item marks it `CANCELLED` and creates a `STORNO` ticket at the station.
 
 ## 4. REST API (Flutter ↔ server)
 
-Base `/api/v1`, JSON, JWT bearer tokens.
+Base `/api/v1`, JSON, JWT bearer tokens (except `/auth/**`). Errors as RFC 9457 Problem Details (`404`
+unknown, `409` conflict, `422` business rule, `401`/`429` for login). Documented with springdoc-openapi at
+`/v3/api-docs` (Swagger UI at `/swagger-ui.html`); the spec is exported by CI and attached to every release.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/auth/login` | user + PIN/password → access + refresh token |
-| POST | `/auth/refresh` | renew token |
-| GET | `/masterdata` | tables, categories, articles, modifiers in one payload, with `ETag` |
-| GET | `/tables/{id}/orders` | open orders of a table |
-| POST | `/orders` | submit order (body contains client UUID → **idempotent**; retries don't duplicate prints) |
-| POST | `/orders/{id}/items` | add items (follow-up submission) |
+| GET | `/auth/waiters` | active waiters for the login list (public) |
+| POST | `/auth/login` | waiter id + PIN → access + refresh token (`429` + `Retry-After` while locked) |
+| POST | `/auth/refresh` | refresh token → new token pair |
+| GET | `/masterdata` | areas, tables, stations, categories, articles, modifier groups in one payload, with `ETag` |
+| GET | `/tables/{id}/orders` | open orders of a table (items, tickets with per-station status) |
+| POST | `/orders` | submit an order; body has the client UUID → **idempotent** (`201` created, `200` already known) |
+| POST | `/orders/{id}/items` | follow-up submission (`submissionNo` must be the next one, else `409`) |
 | POST | `/orders/{id}/cancellations` | cancel items → storno ticket |
-| GET | `/orders/{id}` | order + per-station status (for "ready to serve" info) |
-| GET | `/events` (SSE, optional phase 2) | notifications to waiter e.g. "Table 12 food ready" |
+| POST | `/orders/{id}/completion` | complete the order |
+| GET | `/orders/{id}` | order + per-station ticket status |
 
-Errors as RFC 9457 Problem Details. API documented with springdoc-openapi; spec exported in CI.
+Waiters poll `GET /tables/{id}/orders` for the station status; there is no push channel to the phones.
 
 ## 5. Order processing flow
 
 1. Phone `POST /orders` (with client UUID).
-2. `OrderService` validates (active articles/table), persists `Order`, uses `routing` to create
-   `StationTicket`s, and publishes `OrderSubmitted` — **all in one transaction**.
-3. Spring Modulith's event publication registry (transactional outbox) guarantees listeners run after
-   commit and are retried if they fail:
-   - `printing` → creates `PrintJob`s per station printer; an async worker sends ESC/POS via TCP
-     socket (library: `escpos-coffee`). Failures are retried with backoff; persistent failures are
-     flagged on the station display and in admin ("printer offline") — **an order is never lost
-     because a printer is down**; display acts as fallback.
-   - `display` → pushes the new ticket to all open station views.
-4. Phone receives `201` with order id + ticket summary.
+2. `OrderService` validates (active articles and table), persists the order, `routing` creates the
+   `StationTicket`s and the `OrderSubmitted` event is published — **all in one transaction**.
+3. Spring Modulith's event publication registry (JDBC, republished on restart) runs the listeners after
+   commit and retries failed ones:
+   - `printing` renders each ticket with `TicketRenderer`/`EscPosBuilder` and stores a `PrintJob` per
+     station printer. `PrintDispatcher` polls due jobs (every 2 s) and sends them over TCP (`TcpPrinterGateway`,
+     connect timeout 3 s, write timeout 5 s). A failed attempt keeps the job `PENDING` and retries with
+     exponential backoff capped at one minute — **an order is never lost because a printer is down**.
+   - `display` pushes the new ticket to all open station views (`StationBroadcaster`).
+4. The phone receives the order with its tickets.
+
+Ticket status changes on the station (`TicketStatusChanged`) update the displays and show up on the phone
+at its next poll.
 
 ## 6. Vaadin UIs
 
-### Admin (`/admin`, role ADMIN/MANAGER)
-- CRUD views (Vaadin Grid + Binder/Form, or Vaadin CRUD component) for: Areas & Tables,
-  Categories, Articles (incl. station override, modifiers, active toggle / "sold out"),
-  Stations & Printers (with **"test print"** button), App users (reset PIN, deactivate).
-- Order overview / history (read-only, filter by date/table/waiter), reprint ticket.
-- Spring Security form login, `@RolesAllowed` on views.
+All UI texts are currently German (no `I18NProvider`).
+
+### Admin (`/admin`, roles ADMIN / MANAGER)
+CRUD views for areas, tables, categories, articles (station override, modifier groups, active flag),
+modifier groups, stations (with printers), printers (**test print** button) and waiters (write-only PIN).
+Further views:
+- **Orders** (`/admin/orders`): history with filters and **reprint** of tickets.
+- **Print status** (`/admin/printing`): per printer the waiting and failed jobs, waiting since, last error; a printer counts as offline when delivery attempts failed.
+- **Accounts** (`/admin/accounts`, ADMIN only): admins, managers and one login per station device.
 
 ### Station display (`/station/{stationId}`)
-- Full-screen kiosk view (browser on a TV/tablet), card layout: one card per `StationTicket`
-  showing table, waiter, time since submission (colour turns amber/red), items + modifiers + notes.
-- Tap card / items → `IN_PROGRESS` → `DONE` (bump). "Recall" last done tickets.
-- **Live updates with Vaadin `@Push`** (WebSocket): a `StationBroadcaster` (in `display`) holds
-  registered UIs per station; on events it calls `ui.access(...)` to update. On reconnect the view
-  reloads the current open tickets from the DB, so it never depends on the push stream alone.
-- Auth: a per-station device login (long-lived session, role STATION) so screens need no daily login.
+- Full-screen kiosk view with one card per `StationTicket`: table, waiter, time since submission (colour
+  turns amber/red), items with modifiers and notes. A ticket whose print attempts failed is flagged.
+- Tap to `IN_PROGRESS`, then `DONE` (bump); **recall** of recently done tickets.
+- **Live updates with Vaadin `@Push`** (WebSocket): `StationBroadcaster` keeps the registered UIs per
+  station and updates them via `ui.access(...)`. On reconnect the view reloads the open tickets from the
+  database, so it never depends on the push stream alone.
+- Access: roles STATION, ADMIN, MANAGER. Each display device gets its own STATION account.
 
 ## 7. Cross-cutting decisions
 
 | Topic | Decision |
 |---|---|
-| DB | PostgreSQL; schema migrations with Flyway |
-| Persistence | Spring Data JPA; optimistic locking (`@Version`) on Order/Ticket |
-| Security | `/api/**` stateless JWT (Spring Security resource server, own signing key); Vaadin session-based; HTTPS on LAN (reverse proxy e.g. Caddy/nginx) |
-| Idempotency | client-generated order UUID + unique constraint |
-| Printing | ESC/POS over raw TCP 9100 (Epson TM / compatible); adapter interface so other printer types can be added |
-| Real-time | Vaadin Push internally; SSE for phones in phase 2 |
-| Deployment | Docker Compose (app + Postgres + reverse proxy) on an on-premise box in the venue LAN |
-| Observability | Spring Boot Actuator health (incl. custom printer health indicator), structured logs |
-| i18n | Vaadin I18NProvider, Flutter `intl` (DE/EN) |
-| Testing | JUnit 5 + Testcontainers (Postgres), Spring Modulith `ApplicationModuleTest`, REST contract tests against OpenAPI, fake TCP printer for print tests; Flutter widget + integration tests against a mock server |
+| DB | PostgreSQL 18; schema migrations with Flyway (`V1` baseline, `V2` ticket `done_at`, `V3` STATION role) |
+| Persistence | Spring Data JPA, `ddl-auto: validate`; optimistic locking (`@Version`) on orders and tickets |
+| Security (API) | `/api/**` stateless; JWT (HS256, own key from `BONFLOW_JWT_SECRET`), access token 15 min, refresh token 30 days; only access tokens authorize calls |
+| Security (UI) | session-based form login; accounts from `admin_user` (database first), bootstrap accounts from the configuration as fallback (`BONFLOW_ADMIN_*`, optional shared `BONFLOW_STATION_*`) |
+| Waiter PIN | 4–8 digits, BCrypt; after 5 wrong PINs the waiter is locked for 1 minute (in memory — one instance per venue) |
+| Idempotency | client-generated order UUID as primary key; repeated `POST /orders` returns the stored order |
+| Printing | ESC/POS over raw TCP 9100 (Epson TM / compatible) behind the `PrinterGateway` interface; outbox table + polling worker |
+| Real-time | Vaadin Push for the displays; polling for phones |
+| Transport | HTTPS on the LAN through a reverse proxy (Caddy in the compose file) |
+| Deployment | Docker Compose (app + PostgreSQL + Caddy) on a box in the venue LAN; image `ghcr.io/bonflow/bonflow-server` built by the release workflow on `vX.Y.Z` tags |
+| Observability | Actuator `health` (with probes) and `info`; printer state in the admin print-status view |
+| i18n | App: ARB files (DE/EN) with `intl`; Vaadin views: German only |
+| CI | GitHub Actions pinned to commit SHAs; `mvn verify` (server), `flutter analyze` + `flutter test` (app) |
+| Testing | JUnit 5 + Testcontainers (PostgreSQL), Spring Modulith boundary tests, a fake TCP printer for print tests, order-flow/display/API tests; app: widget tests with fake repositories, contract test against the OpenAPI spec |
 
-## 8. Phasing
-1. **MVP:** master data admin, waiter login, submit orders, routing, printing, station display.
-2. Follow-up orders, storno, reprint, printer health, order history.
-3. Waiter notifications (SSE/push), courses ("fire main course"), sold-out sync, reporting export.
+## 8. Status and not built yet
 
-## 9. Open points to confirm
-- Single venue per installation vs. multi-venue/multi-tenant (affects data model: add `Venue` FK everywhere).
-- On-premise vs. cloud hosting (cloud would need a local print bridge agent, since printers are in the LAN).
-- Printer models (ESC/POS network assumed).
-- Waiter login: PIN on shared phones vs. personal devices.
-- Does the order system need to report anything to the external payment system (e.g. open amount per table)?
+Built: master data admin, waiter login, order flow (submit, follow-up, storno, completion), routing,
+ESC/POS printing with retry, station displays with bump/recall, test print, print status, order history with
+reprint, accounts incl. per-device station logins, Flutter app with offline queue for new orders.
 
-## Verification of the proposal
-- Walk through the flow with a prototype slice: one article, one station, `POST /orders` via curl →
-  ticket appears on `/station/1` and prints on a real or simulated (netcat on port 9100) printer.
-- Kill the printer mid-test → order still visible on display, print job retried when printer returns.
-- Re-send the same `POST /orders` → no duplicate ticket.
+Not built (candidates for later):
+- Notifications to waiters ("table 12 food ready") over SSE or push instead of polling.
+- Courses: the course is stored per item, but there is no "fire main course" step.
+- Sold-out synchronisation to the phones beyond the regular master data refresh.
+- Reporting / export.
+- A custom printer health indicator in Actuator (the admin view exists).
+- Internationalisation of the Vaadin UIs.
+- Offline handling of follow-up orders and storno in the app.
+
+## 9. Open points
+- Cloud hosting would need a local print bridge agent, because the printers are in the LAN.
+- Multi-venue installations would add a `Venue` reference to the data model.
+- A payment interface (e.g. open amount per table) is out of scope for now.

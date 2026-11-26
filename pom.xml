@@ -186,6 +186,21 @@
 
   <profiles>
     <profile>
+      <!-- Development mode (mvn spring-boot:run, running from the IDE): Vaadin needs its dev server.
+           Active by default; switched off by -Pproduction, so it is not part of the production jar. -->
+      <id>development</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>com.vaadin</groupId>
+          <artifactId>vaadin-dev</artifactId>
+          <optional>true</optional>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
       <!-- Production bundle: mvn -Pproduction package -->
       <id>production</id>
       <properties>

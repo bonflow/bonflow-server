@@ -69,10 +69,16 @@ public class AdminLayout extends AppLayout {
         // Build info only exists in a Maven build; a plain IDE run shows "dev".
         BuildProperties props = build.getIfAvailable();
         String version = props == null ? "dev" : props.getVersion();
-        Div footer = new Div(new Span("BonFlow " + version), new Span(" · "),
-                link("GitHub", "https://github.com/bonflow/bonflow-server"), new Span(" · "),
-                link("bonflow.ch", "https://bonflow.ch"));
-        footer.getStyle().set("font-size", "0.85rem").set("padding", "0.75rem 1rem").set("opacity", "0.8");
+        Span name = new Span("BonFlow");
+        name.getStyle().set("font-weight", "600");
+        Span versionLabel = new Span("Version " + version);
+        versionLabel.getStyle().set("font-size", "0.8rem").set("opacity", "0.65");
+        Div footer = new Div(name, versionLabel,
+                link("GitHub", "https://github.com/bonflow/bonflow-server", VaadinIcon.CODE),
+                link("bonflow.ch", "https://bonflow.ch", VaadinIcon.EXTERNAL_LINK));
+        footer.getStyle().set("display", "flex").set("flex-direction", "column").set("gap", "0.3rem")
+                .set("font-size", "0.9rem").set("padding", "1rem")
+                .set("border-top", "1px solid var(--vaadin-border-color-secondary, rgba(128,128,128,0.3))");
         VerticalLayout drawer = new VerticalLayout(nav, footer);
         drawer.setPadding(false);
         drawer.setSpacing(false);
@@ -81,10 +87,14 @@ public class AdminLayout extends AppLayout {
         addToDrawer(drawer);
     }
 
-    private static Anchor link(String text, String href) {
-        Anchor a = new Anchor(href, text);
+    private static Anchor link(String text, String href, VaadinIcon icon) {
+        var symbol = icon.create();
+        symbol.setSize("1em");
+        Anchor a = new Anchor(href, symbol, new Span(text));
         a.setTarget("_blank");
         a.getElement().setAttribute("rel", "noopener noreferrer");
+        a.getStyle().set("display", "inline-flex").set("align-items", "center").set("gap", "0.5rem")
+                .set("text-decoration", "none");
         return a;
     }
 

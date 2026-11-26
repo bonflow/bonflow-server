@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import ch.bonflow.masterdata.AbstractEntity;
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
@@ -12,6 +14,7 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.data.binder.Binder;
@@ -32,6 +35,7 @@ abstract class CrudView<T extends AbstractEntity> extends VerticalLayout {
     private final Supplier<T> factory;
     private final Dialog dialog = new Dialog();
     private final Button delete = new Button("Löschen");
+    private final HorizontalLayout toolbar = new HorizontalLayout();
     private T current;
 
     protected CrudView(String title, JpaRepository<T, Long> repository, Supplier<T> factory) {
@@ -40,9 +44,17 @@ abstract class CrudView<T extends AbstractEntity> extends VerticalLayout {
         setSizeFull();
         Button add = new Button("Neu", VaadinIcon.PLUS.create(), e -> edit(this.factory.get()));
         add.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        add(new H2(title), add, grid);
+        toolbar.add(add);
+        add(new H2(title), toolbar, grid);
         grid.setSizeFull();
         grid.addItemClickListener(e -> edit(e.getItem()));
+    }
+
+    /** Adds an import/export button for the given master data sections to the toolbar. */
+    protected final void enableTransfer(MasterDataTransferService transfer, TransferSection... sections) {
+        Button button = new Button("Import / Export", VaadinIcon.EXCHANGE.create(),
+                e -> new TransferDialog(transfer, List.of(sections), this::refresh).open());
+        toolbar.add(button);
     }
 
     /** Adds the grid columns. */

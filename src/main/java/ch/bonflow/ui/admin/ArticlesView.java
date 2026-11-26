@@ -3,6 +3,8 @@ package ch.bonflow.ui.admin;
 import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.Article;
 import ch.bonflow.masterdata.ArticleCategory;
 import ch.bonflow.masterdata.ArticleCategoryRepository;
@@ -31,11 +33,13 @@ public class ArticlesView extends CrudView<Article> {
     private final ModifierGroupRepository modifierGroups;
 
     public ArticlesView(ArticleRepository articles, ArticleCategoryRepository categories,
-            StationRepository stations, ModifierGroupRepository modifierGroups) {
+            StationRepository stations, ModifierGroupRepository modifierGroups,
+            MasterDataTransferService transfer) {
         super("Artikel", articles, Article::new);
         this.categories = categories;
         this.stations = stations;
         this.modifierGroups = modifierGroups;
+        enableTransfer(transfer, TransferSection.ARTICLES);
         init();
     }
 

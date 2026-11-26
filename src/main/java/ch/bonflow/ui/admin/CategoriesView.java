@@ -2,6 +2,8 @@ package ch.bonflow.ui.admin;
 
 import java.util.List;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.ArticleCategory;
 import ch.bonflow.masterdata.ArticleCategoryRepository;
 import ch.bonflow.masterdata.Station;
@@ -22,10 +24,12 @@ public class CategoriesView extends CrudView<ArticleCategory> {
     private final ArticleCategoryRepository categories;
     private final StationRepository stations;
 
-    public CategoriesView(ArticleCategoryRepository categories, StationRepository stations) {
+    public CategoriesView(ArticleCategoryRepository categories, StationRepository stations,
+            MasterDataTransferService transfer) {
         super("Kategorien", categories, ArticleCategory::new);
         this.categories = categories;
         this.stations = stations;
+        enableTransfer(transfer, TransferSection.CATEGORIES);
         init();
     }
 

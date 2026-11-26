@@ -3,6 +3,8 @@ package ch.bonflow.ui.admin;
 import java.util.Arrays;
 import java.util.List;
 
+import ch.bonflow.masterdata.MasterDataTransferService;
+import ch.bonflow.masterdata.TransferSection;
 import ch.bonflow.masterdata.ModifierGroup;
 import ch.bonflow.masterdata.ModifierGroupRepository;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -18,8 +20,9 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed({"ADMIN", "MANAGER"})
 public class ModifierGroupsView extends CrudView<ModifierGroup> {
 
-    public ModifierGroupsView(ModifierGroupRepository groups) {
+    public ModifierGroupsView(ModifierGroupRepository groups, MasterDataTransferService transfer) {
         super("Modifier-Gruppen", groups, ModifierGroup::new);
+        enableTransfer(transfer, TransferSection.MODIFIER_GROUPS);
         init();
     }
 

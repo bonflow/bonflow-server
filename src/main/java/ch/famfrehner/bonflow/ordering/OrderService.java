@@ -207,7 +207,9 @@ public class OrderService {
 
     private void publish(CustomerOrder order, int submissionNo, TicketKind kind, List<TicketSummary> created) {
         events.publishEvent(new OrderSubmitted(order.getId(), submissionNo, kind,
-                created.stream().map(TicketSummary::id).toList()));
+                created.stream().map(TicketSummary::id).toList(),
+                created.stream().map(TicketSummary::stationId)
+                        .collect(Collectors.toCollection(java.util.LinkedHashSet::new))));
     }
 
     private OrderView view(CustomerOrder o) {

@@ -1,6 +1,7 @@
 package ch.famfrehner.bonflow.printing;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
@@ -18,4 +19,11 @@ interface PrintJobRepository extends JpaRepository<PrintJob, Long> {
             order by j.id
             """)
     List<PrintJob> findDue(@Param("now") Instant now, Pageable page);
+
+    @Query("""
+            select distinct j.ticketId from PrintJob j
+            where j.ticketId in :ticketIds
+              and j.status = ch.famfrehner.bonflow.printing.PrintJobStatus.PENDING and j.attempts > 0
+            """)
+    List<Long> findTicketsWithFailedAttempts(@Param("ticketIds") Collection<Long> ticketIds);
 }

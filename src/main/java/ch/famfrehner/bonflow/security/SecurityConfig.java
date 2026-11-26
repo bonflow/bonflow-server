@@ -1,9 +1,6 @@
 package ch.famfrehner.bonflow.security;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-import javax.crypto.spec.SecretKeySpec;
 
 import ch.famfrehner.bonflow.ui.LoginView;
 import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
@@ -11,7 +8,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -22,6 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -37,8 +35,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableConfigurationProperties(SecurityProperties.class)
 class SecurityConfig {
 
-    private static final int MIN_SECRET_BYTES = 32;
-
     @Bean
     @Order(1)
     SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
@@ -49,7 +45,7 @@ class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**", "/v3/api-docs/**",
                                 "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
+                .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
         return http.build();
     }
 
@@ -62,13 +58,24 @@ class SecurityConfig {
         return http.build();
     }
 
+    /** Only access tokens authorize API calls; refresh tokens are rejected here. */
     @Bean
     JwtDecoder jwtDecoder(SecurityProperties props) {
-        byte[] key = requireSecret(props).getBytes(StandardCharsets.UTF_8);
-        return NimbusJwtDecoder
-                .withSecretKey(new SecretKeySpec(key, "HmacSHA256"))
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withSecretKey(JwtKeys.hmacKey(props))
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
+        decoder.setJwtValidator(TokenService.validatorFor(TokenService.ACCESS));
+        return decoder;
+    }
+
+    private static JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
+        authorities.setAuthoritiesClaimName(TokenService.ROLES_CLAIM);
+        authorities.setAuthorityPrefix("ROLE_");
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        return converter;
     }
 
     @Bean
@@ -87,15 +94,5 @@ class SecurityConfig {
                 .password(encoder.encode(password))
                 .roles("ADMIN")
                 .build());
-    }
-
-    private static String requireSecret(SecurityProperties props) {
-        String secret = props.jwtSecret();
-        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
-            throw new IllegalStateException(
-                    "bonflow.security.jwt-secret (BONFLOW_JWT_SECRET) must be set to at least "
-                            + MIN_SECRET_BYTES + " bytes");
-        }
-        return secret;
     }
 }

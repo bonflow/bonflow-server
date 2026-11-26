@@ -42,6 +42,10 @@ public class ModifierGroup extends AbstractEntity {
         this.multiSelect = multiSelect;
     }
 
+    public List<Modifier> getModifiers() {
+        return List.copyOf(modifiers);
+    }
+
     public List<String> getModifierNames() {
         return modifiers.stream().map(Modifier::getName).toList();
     }

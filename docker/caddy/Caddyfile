@@ -1,0 +1,10 @@
+# HTTPS on the venue LAN with Caddy's internal CA. Replace the site address with the
+# hostname the phones and station screens use (e.g. bonflow.lan).
+{
+	local_certs
+}
+
+bonflow.lan {
+	tls internal
+	reverse_proxy app:8080
+}

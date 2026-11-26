@@ -1,0 +1,47 @@
+# On-premise deployment in the venue LAN: app + PostgreSQL + reverse proxy.
+# Copy .env.example to .env and fill in the secrets first.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bonflow
+      POSTGRES_USER: bonflow
+      POSTGRES_PASSWORD: ${BONFLOW_DB_PASSWORD:?set BONFLOW_DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bonflow -d bonflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BONFLOW_DB_URL: jdbc:postgresql://db:5432/bonflow
+      BONFLOW_DB_USER: bonflow
+      BONFLOW_DB_PASSWORD: ${BONFLOW_DB_PASSWORD:?set BONFLOW_DB_PASSWORD}
+      BONFLOW_JWT_SECRET: ${BONFLOW_JWT_SECRET:?set BONFLOW_JWT_SECRET (>= 32 bytes)}
+      BONFLOW_ADMIN_USERNAME: ${BONFLOW_ADMIN_USERNAME:-admin}
+      BONFLOW_ADMIN_PASSWORD: ${BONFLOW_ADMIN_PASSWORD:?set BONFLOW_ADMIN_PASSWORD}
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  caddy-data:

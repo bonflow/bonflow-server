@@ -46,6 +46,12 @@ public class WaiterService {
         return users.findAllByActiveTrueOrderByDisplayNameAsc().stream().map(WaiterInfo::of).toList();
     }
 
+    /** Name of a waiter, also when deactivated since (printed on tickets of old orders). */
+    @Transactional(readOnly = true)
+    public Optional<String> displayName(long id) {
+        return users.findById(id).map(AppUser::getDisplayName);
+    }
+
     @Transactional(readOnly = true)
     public Optional<WaiterInfo> findActive(long id) {
         return users.findById(id).filter(AppUser::isActive).map(WaiterInfo::of);

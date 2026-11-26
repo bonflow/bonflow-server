@@ -1,7 +1,7 @@
 package ch.famfrehner.bonflow.printing;
 
 import ch.famfrehner.bonflow.ordering.OrderSubmitted;
-import org.springframework.modulith.ApplicationModuleListener;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
 /**

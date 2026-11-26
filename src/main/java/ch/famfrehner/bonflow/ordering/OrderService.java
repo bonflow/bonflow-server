@@ -79,7 +79,7 @@ public class OrderService {
                     "Expected submission " + next + " but got " + cmd.submissionNo() + ", reload the order");
         }
         Map<OrderItem, Long> routed = buildItems(order, cmd.items(), next);
-        orders.saveAndFlush(order);
+        orders.flush(); // order is managed: flush persists the new items in place (save() would merge copies)
         createTickets(order, next, TicketKind.ADDITION, routed);
         return view(order);
     }
@@ -114,7 +114,7 @@ public class OrderService {
         if (!order.hasActiveItems()) {
             order.cancel();
         }
-        orders.saveAndFlush(order);
+        orders.flush();
         if (!storno.isEmpty()) {
             int submissionNo = order.lastSubmissionNo();
             publish(order, submissionNo, TicketKind.STORNO,

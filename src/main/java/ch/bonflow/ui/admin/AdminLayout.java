@@ -67,10 +67,18 @@ public class AdminLayout extends AppLayout {
         PasswordField current = new PasswordField("Aktuelles Passwort");
         PasswordField next = new PasswordField("Neues Passwort (mind. 8 Zeichen)");
         PasswordField repeat = new PasswordField("Neues Passwort wiederholen");
+        for (PasswordField field : new PasswordField[] {current, next, repeat}) {
+            field.setWidthFull();
+            // The eye button would take a tab stop; Tab should go straight to the next field.
+            field.setRevealButtonVisible(false);
+        }
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Passwort ändern");
+        dialog.setWidth("24rem");
+        dialog.setMaxWidth("100%");
         VerticalLayout form = new VerticalLayout(current, next, repeat);
         form.setPadding(false);
+        form.setSpacing(true);
         dialog.add(form);
         Button save = new Button("Speichern", e -> {
             if (!next.getValue().equals(repeat.getValue())) {
@@ -90,5 +98,6 @@ public class AdminLayout extends AppLayout {
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         dialog.getFooter().add(new Button("Abbrechen", e -> dialog.close()), save);
         dialog.open();
+        current.focus();
     }
 }

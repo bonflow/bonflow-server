@@ -102,6 +102,12 @@ jobs:
           mvn -B -q versions:set -DnewVersion="$next" -DgenerateBackupPoms=false
           git commit -am "Next development version ${next}"
           git push origin "$branch"
-          gh pr create --base main --head "$branch" \
+          if ! gh pr create --base main --head "$branch" \
             --title "Next development version ${next}" \
-            --body "Automatically created after release ${TAG}."
+            --body "Automatically created after release ${TAG}."; then
+            # Creating PRs from workflows can be disabled by the organization: leave the branch
+            # and point to the compare page instead of failing the release.
+            link="https://github.com/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+            echo "::warning::Could not open the pull request, open it manually: ${link}"
+            echo "Open the pull request for ${next}: ${link}" >> "$GITHUB_STEP_SUMMARY"
+          fi

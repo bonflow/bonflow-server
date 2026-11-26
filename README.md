@@ -77,7 +77,7 @@ services:
       retries: 5
 
   app:
-    image: ghcr.io/bonflow/bonflow-server:0.1.3
+    image: ghcr.io/bonflow/bonflow-server:0.1.4
     restart: unless-stopped
     depends_on:
       db:

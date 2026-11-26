@@ -13,6 +13,8 @@ interface PrintJobRepository extends JpaRepository<PrintJob, Long> {
 
     boolean existsByTicketId(Long ticketId);
 
+    List<PrintJob> findAllByStatus(PrintJobStatus status);
+
     @Query("""
             select j from PrintJob j
             where j.status = ch.famfrehner.bonflow.printing.PrintJobStatus.PENDING and j.nextAttemptAt <= :now

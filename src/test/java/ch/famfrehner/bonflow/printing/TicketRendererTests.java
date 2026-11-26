@@ -16,7 +16,7 @@ class TicketRendererTests {
 
     private static TicketContent content(TicketKind kind, TicketContent.Line... lines) {
         return new TicketContent(kind, "Küche", "T12", "Anna", Instant.parse("2026-11-26T17:34:00Z"),
-                "Allergie: Nüsse", List.of(lines));
+                "Allergie: Nüsse", false, List.of(lines));
     }
 
     private static String text(byte[] bytes) {
@@ -46,6 +46,15 @@ class TicketRendererTests {
                 .contains("NACHBESTELLUNG");
         assertThat(text(TicketRenderer.render(content(TicketKind.STORNO, line), 48, ZoneId.of("UTC"))))
                 .contains("*** STORNO ***");
+    }
+
+    @Test
+    void marksReprints() {
+        TicketContent original = content(TicketKind.NEW, new TicketContent.Line(1, "Bier", null, List.of(), null));
+        TicketContent reprint = new TicketContent(original.kind(), original.stationName(), original.tableLabel(),
+                original.waiterName(), original.createdAt(), original.orderNote(), true, original.lines());
+        assertThat(text(TicketRenderer.render(original, 48, ZoneId.of("UTC")))).doesNotContain("NACHDRUCK");
+        assertThat(text(TicketRenderer.render(reprint, 48, ZoneId.of("UTC")))).contains("NACHDRUCK");
     }
 
     @Test

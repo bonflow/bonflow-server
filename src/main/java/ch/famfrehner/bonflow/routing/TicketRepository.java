@@ -16,7 +16,7 @@ interface TicketRepository extends JpaRepository<StationTicket, Long> {
 
     List<StationTicket> findAllByStationIdAndStatusNotOrderById(Long stationId, TicketStatus status);
 
-    List<StationTicket> findByStationIdAndStatusOrderByIdDesc(Long stationId, TicketStatus status, Pageable page);
+    List<StationTicket> findByStationIdAndStatusOrderByDoneAtDescIdDesc(Long stationId, TicketStatus status, Pageable page);
 
     /** Station each (non-storno) ticketed item went to. */
     @Query("""

@@ -169,6 +169,41 @@ class DisplayTests {
     }
 
     @Test
+    void recentlyDoneIsOrderedByCompletionTimeNotByTicketId() throws Exception {
+        long first = orders.submit(new SubmitOrder(UUID.randomUUID(), tableId, null,
+                List.of(new NewItem(schnitzel.getId(), 1, null, null, null))), waiterId).order().tickets().get(0).id();
+        long second = orders.submit(new SubmitOrder(UUID.randomUUID(), tableId, null,
+                List.of(new NewItem(schnitzel.getId(), 2, null, null, null))), waiterId).order().tickets().get(0).id();
+
+        // the later ticket is finished first, the earlier one afterwards
+        display.advance(second);
+        display.advance(second);
+        Thread.sleep(20);
+        display.advance(first);
+        display.advance(first);
+
+        assertThat(display.board(kitchenId).recentlyDone()).extracting(TicketCard::ticketId)
+                .containsExactly(first, second);
+    }
+
+    @Test
+    void orderDetailResolvesNamesAndDeliveryState() {
+        OrderView order = orders.submit(new SubmitOrder(UUID.randomUUID(), tableId, "Geburtstag",
+                List.of(new NewItem(schnitzel.getId(), 2, "scharf", 1, null),
+                        new NewItem(beer.getId(), 1, null, null, null))), waiterId).order();
+        display.advance(order.tickets().get(0).id());
+        display.advance(order.tickets().get(0).id());
+
+        OrderDetail detail = display.orderDetail(order.id());
+        assertThat(detail.tableLabel()).isEqualTo("T12");
+        assertThat(detail.waiterName()).isEqualTo("Anna");
+        assertThat(detail.items()).extracting(OrderDetail.Item::name).containsExactly("Schnitzel", "Bier");
+        assertThat(detail.tickets()).extracting(OrderDetail.Ticket::stationName).containsExactly("Küche", "Bar");
+        assertThat(detail.tickets().get(0).doneAt()).isNotNull();
+        assertThat(detail.tickets().get(1).doneAt()).isNull();
+    }
+
+    @Test
     void cancelledItemsAreMarkedAndStornoTicketAppears() {
         OrderView order = orders.submit(new SubmitOrder(UUID.randomUUID(), tableId, null,
                 List.of(new NewItem(schnitzel.getId(), 1, null, null, null),

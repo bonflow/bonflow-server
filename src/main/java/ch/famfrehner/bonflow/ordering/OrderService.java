@@ -21,6 +21,12 @@ import ch.famfrehner.bonflow.routing.TicketKind;
 import ch.famfrehner.bonflow.routing.TicketService;
 import ch.famfrehner.bonflow.routing.TicketService.RoutedItem;
 import ch.famfrehner.bonflow.routing.TicketSummary;
+import ch.famfrehner.bonflow.users.WaiterService;
+import jakarta.persistence.criteria.Predicate;
+import java.time.Instant;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,9 +45,11 @@ public class OrderService {
     private final TicketService tickets;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final WaiterService waiters;
 
     OrderService(CustomerOrderRepository orders, DiningTableRepository tables, ArticleRepository articles,
-            TicketService tickets, ApplicationEventPublisher events, Clock clock) {
+            TicketService tickets, ApplicationEventPublisher events, Clock clock, WaiterService waiters) {
+        this.waiters = waiters;
         this.orders = orders;
         this.tables = tables;
         this.articles = articles;
@@ -134,6 +142,44 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderView get(UUID orderId) {
         return view(orders.findById(orderId).orElseThrow(() -> new OrderNotFoundException(orderId)));
+    }
+
+    /** Order history, newest first, at most {@code limit} rows. */
+    @Transactional(readOnly = true)
+    public List<OrderSummary> search(OrderFilter filter, int limit) {
+        Specification<CustomerOrder> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (filter.from() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.<Instant>get("createdAt"), filter.from()));
+            }
+            if (filter.to() != null) {
+                predicates.add(cb.lessThan(root.<Instant>get("createdAt"), filter.to()));
+            }
+            if (filter.tableId() != null) {
+                predicates.add(cb.equal(root.get("diningTableId"), filter.tableId()));
+            }
+            if (filter.waiterId() != null) {
+                predicates.add(cb.equal(root.get("waiterId"), filter.waiterId()));
+            }
+            if (filter.status() != null) {
+                predicates.add(cb.equal(root.get("status"), filter.status()));
+            }
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
+        List<CustomerOrder> found = orders.findAll(spec,
+                PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        Map<Long, String> tableLabel = tables.findAllById(
+                found.stream().map(CustomerOrder::getDiningTableId).collect(Collectors.toSet())).stream()
+                .collect(Collectors.toMap(DiningTable::getId, DiningTable::getLabel));
+        Map<Long, String> waiterName = new HashMap<>();
+        found.stream().map(CustomerOrder::getWaiterId).distinct()
+                .forEach(id -> waiterName.put(id, waiters.displayName(id).orElse("?")));
+        return found.stream().map(o -> new OrderSummary(o.getId(), o.getDiningTableId(),
+                tableLabel.getOrDefault(o.getDiningTableId(), "?"), o.getWaiterId(),
+                waiterName.get(o.getWaiterId()), o.getStatus(), o.getCreatedAt(),
+                (int) o.getItems().stream().filter(i -> i.getStatus() == ItemStatus.ACTIVE).count(),
+                (int) o.getItems().stream().filter(i -> i.getStatus() == ItemStatus.CANCELLED).count(),
+                o.getNote())).toList();
     }
 
     @Transactional(readOnly = true)

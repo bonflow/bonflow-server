@@ -54,10 +54,15 @@ Starts the app, PostgreSQL and a Caddy reverse proxy with LAN HTTPS (edit
 
 ## Status
 
-Skeleton only: build, module layout, baseline schema (`V1__baseline.sql`), security chains,
-placeholder Vaadin views, Docker and CI. Domain logic (entities, `OrderService`, routing,
-printing, display broadcaster, REST controllers) is the next step, in the order of the phasing
-in the architecture document.
+Functional: PIN login with JWT, master data API with ETag, order flow (submit, follow-up, storno,
+completion), routing to stations, ESC/POS printing with outbox and retry, station displays with
+live push, order history with reprint, admin UI including accounts (admin, manager, one login
+per station device).
+
+## Release
+
+Push a tag `vX.Y.Z`: the `release` workflow runs the tests, creates a GitHub release with the
+OpenAPI spec and publishes the image `ghcr.io/bonflow/bonflow-server:X.Y.Z` (and `latest`).
 
 ## Versions
 

@@ -1,0 +1,7 @@
+# Production (set as default in the Docker image via SPRING_PROFILES_ACTIVE=prod).
+# The API docs are only needed at build time (contract snapshot), not in a running venue installation.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

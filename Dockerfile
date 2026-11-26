@@ -12,4 +12,5 @@ RUN useradd --system --no-create-home bonflow
 COPY --from=build /src/target/bonflow-server-*.jar app.jar
 USER bonflow
 EXPOSE 8080
+ENV SPRING_PROFILES_ACTIVE=prod
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

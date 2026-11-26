@@ -104,6 +104,8 @@ docker compose up -d
 The admin UI is then at <http://localhost:8080/admin>. Flyway creates the schema on the first
 start. Notes:
 
+- The image runs with the `prod` profile (`SPRING_PROFILES_ACTIVE=prod`), which switches off the
+  OpenAPI/Swagger endpoints. Override the variable if you want them back.
 - Plain HTTP on port 8080 is fine for a first try; for the venue network put a TLS proxy in
   front (the repo's `docker-compose.yml` includes Caddy) because the apps send PINs and tokens.
 - The first login uses `BONFLOW_ADMIN_USERNAME` / `BONFLOW_ADMIN_PASSWORD`. Create permanent

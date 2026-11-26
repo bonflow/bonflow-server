@@ -20,6 +20,8 @@ import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.card.Card;
+import com.vaadin.flow.component.card.CardVariant;
 import com.vaadin.flow.component.details.Details;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
@@ -50,6 +52,10 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
     private static final int POLL_MILLIS = 15_000;
     private static final long AMBER_AFTER_MINUTES = 5;
     private static final long RED_AFTER_MINUTES = 10;
+    private static final String GREEN = "#2e9e5b";
+    private static final String AMBER = "#d98e04";
+    private static final String RED = "#d93a3a";
+    private static final String BLUE = "#2f6fed";
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     private final DisplayService display;
@@ -80,11 +86,11 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
 
         cards.getStyle().set("display", "grid")
                 .set("grid-template-columns", "repeat(auto-fill, minmax(18rem, 1fr))")
-                .set("gap", "var(--lumo-space-m)").set("align-items", "start").set("width", "100%");
+                .set("gap", "1rem").set("align-items", "start").set("width", "100%");
         emptyHint.setText("Keine offenen Bestellungen");
-        emptyHint.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "1.25rem");
+        emptyHint.getStyle().set("opacity", "0.6").set("font-size", "1.25rem");
         doneDetails.setWidthFull();
-        doneList.getStyle().set("display", "grid").set("gap", "var(--lumo-space-s)");
+        doneList.getStyle().set("display", "grid").set("gap", "0.5rem");
 
         add(header, cards, emptyHint, doneDetails);
         setFlexGrow(1, cards);
@@ -148,47 +154,47 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
         doneDetails.setVisible(!board.recentlyDone().isEmpty());
     }
 
-    private Div cardView(TicketCard card, Instant now) {
+    private Card cardView(TicketCard card, Instant now) {
         long minutes = Duration.between(card.createdAt(), now).toMinutes();
         String accent = accent(card, minutes);
 
-        Div div = new Div();
-        div.getStyle().set("background", "var(--lumo-base-color)")
-                .set("border", "1px solid var(--lumo-contrast-20pct)")
-                .set("border-left", "0.5rem solid " + accent)
-                .set("border-radius", "var(--lumo-border-radius-l)")
-                .set("padding", "var(--lumo-space-m)")
-                .set("box-shadow", "var(--lumo-box-shadow-s)");
+        Card c = new Card();
+        c.addThemeVariants(CardVariant.ELEVATED);
+        c.getStyle().set("border-top", "0.5rem solid " + accent).set("min-width", "0");
 
         Span table = new Span("Tisch " + card.tableLabel());
-        table.getStyle().set("font-size", "1.6rem").set("font-weight", "700");
-        Span age = new Span(minutes + " min");
-        age.getStyle().set("color", accent).set("font-weight", "700").set("font-size", "1.2rem");
-        HorizontalLayout top = new HorizontalLayout(table, age);
-        top.setWidthFull();
-        top.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
-        top.setAlignItems(FlexComponent.Alignment.BASELINE);
-        div.add(top);
+        table.getStyle().set("font-size", "1.7rem").set("font-weight", "700");
+        c.setTitle(table);
 
         Span meta = new Span(card.waiterName() + " · " + TIME.format(card.createdAt().atZone(ZoneId.systemDefault())));
-        meta.getStyle().set("color", "var(--lumo-secondary-text-color)");
-        div.add(meta);
+        c.setSubtitle(meta);
 
-        if (card.kind() != TicketKind.NEW) {
-            div.add(badge(card.kind() == TicketKind.STORNO ? "STORNO" : "NACHBESTELLUNG",
-                    card.kind() == TicketKind.STORNO ? "var(--lumo-error-color)" : "var(--lumo-primary-color)"));
-        }
-        if (card.printProblem()) {
-            div.add(badge("⚠ Drucker nicht erreichbar", "var(--lumo-warning-text-color)"));
+        Span age = new Span(minutes + " min");
+        age.getStyle().set("background", accent).set("color", "white").set("font-weight", "700")
+                .set("font-size", "1.2rem").set("padding", "0.15rem 0.7rem").set("border-radius", "999px")
+                .set("font-variant-numeric", "tabular-nums");
+        c.setHeaderSuffix(age);
+
+        Div body = new Div();
+        body.getStyle().set("display", "flex").set("flex-direction", "column").set("gap", "0.5rem");
+        if (card.kind() != TicketKind.NEW || card.printProblem()) {
+            Div badges = new Div();
+            badges.getStyle().set("display", "flex").set("flex-wrap", "wrap").set("gap", "0.4rem");
+            if (card.kind() != TicketKind.NEW) {
+                badges.add(badge(card.kind() == TicketKind.STORNO ? "STORNO" : "NACHBESTELLUNG",
+                        card.kind() == TicketKind.STORNO ? RED : BLUE));
+            }
+            if (card.printProblem()) {
+                badges.add(badge("⚠ Drucker nicht erreichbar", AMBER));
+            }
+            body.add(badges);
         }
         if (card.orderNote() != null) {
             Div note = new Div("Notiz: " + card.orderNote());
             note.getStyle().set("font-style", "italic");
-            div.add(note);
+            body.add(note);
         }
 
-        Div items = new Div();
-        items.getStyle().set("margin", "var(--lumo-space-s) 0");
         Integer currentCourse = null;
         boolean first = true;
         boolean hasCourses = card.lines().stream().anyMatch(l -> l.course() != null);
@@ -196,16 +202,18 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
                 .sorted(Comparator.comparing(l -> l.course() == null ? 0 : l.course())).toList();
         for (TicketCard.Line line : lines) {
             if (hasCourses && (first || !Objects.equals(currentCourse, line.course()))) {
-                Div course = new Div(line.course() == null ? "ohne Gang" : "Gang " + line.course());
-                course.getStyle().set("font-weight", "700").set("margin-top", "var(--lumo-space-s)")
-                        .set("color", "var(--lumo-secondary-text-color)");
-                items.add(course);
+                Div course = new Div(line.course() == null ? "OHNE GANG" : "GANG " + line.course());
+                course.getStyle().set("font-weight", "700").set("font-size", "0.85rem")
+                        .set("letter-spacing", "0.08em").set("opacity", "0.65")
+                        .set("border-bottom", "1px solid currentColor").set("padding-bottom", "0.15rem")
+                        .set("margin-top", "0.4rem");
+                body.add(course);
                 currentCourse = line.course();
             }
             first = false;
-            items.add(lineView(line, card.kind() != TicketKind.STORNO && line.cancelled()));
+            body.add(lineView(line, card.kind() != TicketKind.STORNO && line.cancelled()));
         }
-        div.add(items);
+        c.add(body);
 
         Button action = new Button(card.status() == TicketStatus.NEW ? "Starten" : "Fertig");
         action.setWidthFull();
@@ -214,8 +222,8 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
             action.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
         }
         action.addClickListener(e -> advance(card.ticketId()));
-        div.add(action);
-        return div;
+        c.addToFooter(action);
+        return c;
     }
 
     private static Div lineView(TicketCard.Line line, boolean cancelled) {
@@ -223,7 +231,7 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
         Span main = new Span(line.quantity() + "× " + line.name());
         main.getStyle().set("font-size", "1.3rem").set("font-weight", "600");
         if (cancelled) {
-            main.getStyle().set("text-decoration", "line-through").set("color", "var(--lumo-disabled-text-color)");
+            main.getStyle().set("text-decoration", "line-through").set("opacity", "0.5");
             div.add(main, new Span("  storniert"));
         } else {
             div.add(main);
@@ -239,15 +247,15 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
 
     private static Div subLine(String text) {
         Div d = new Div(text);
-        d.getStyle().set("margin-left", "var(--lumo-space-m)").set("font-size", "1.1rem");
+        d.getStyle().set("margin-left", "1rem").set("font-size", "1.1rem").set("opacity", "0.85");
         return d;
     }
 
     private static Span badge(String text, String color) {
         Span span = new Span(text);
-        span.getStyle().set("display", "inline-block").set("margin", "var(--lumo-space-xs) 0")
-                .set("padding", "0 var(--lumo-space-s)").set("border", "2px solid " + color).set("color", color)
-                .set("border-radius", "var(--lumo-border-radius-m)").set("font-weight", "700");
+        span.getStyle().set("padding", "0.1rem 0.6rem").set("border", "2px solid " + color)
+                .set("color", color).set("border-radius", "0.5rem").set("font-weight", "700")
+                .set("font-size", "0.9rem");
         return span;
     }
 
@@ -282,15 +290,15 @@ public class StationView extends VerticalLayout implements BeforeEnterObserver {
 
     private static String accent(TicketCard card, long minutes) {
         if (card.status() == TicketStatus.IN_PROGRESS) {
-            return "var(--lumo-primary-color)";
+            return BLUE;
         }
         if (minutes >= RED_AFTER_MINUTES) {
-            return "var(--lumo-error-color)";
+            return RED;
         }
         if (minutes >= AMBER_AFTER_MINUTES) {
-            return "var(--lumo-warning-color)";
+            return AMBER;
         }
-        return "var(--lumo-success-color)";
+        return GREEN;
     }
 
     private static Long parse(String id) {

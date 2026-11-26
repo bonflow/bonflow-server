@@ -6,8 +6,13 @@ import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
+import jakarta.annotation.security.RolesAllowed;
 
-/** Navigation shell of the admin UI. */
+/**
+ * Navigation shell of the admin UI. Vaadin also checks the access rules of the parent layout, so it
+ * needs its own annotation; the individual views narrow it down (e.g. accounts: ADMIN only).
+ */
+@RolesAllowed({"ADMIN", "MANAGER"})
 public class AdminLayout extends AppLayout {
 
     public AdminLayout() {

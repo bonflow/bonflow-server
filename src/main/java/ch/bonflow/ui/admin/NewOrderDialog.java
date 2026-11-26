@@ -118,7 +118,7 @@ class NewOrderDialog extends Dialog {
         HorizontalLayout lineEditor = new HorizontalLayout(article, quantity, course, modifiers, lineNote, add);
         lineEditor.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.END);
         lineEditor.setWidthFull();
-        lineEditor.setFlexWrap(true);
+        lineEditor.setWrap(true);
 
         grid.addColumn(Line::description).setHeader("Position").setFlexGrow(1);
         grid.addComponentColumn(line -> {

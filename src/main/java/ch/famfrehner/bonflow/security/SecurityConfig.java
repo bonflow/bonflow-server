@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ch.famfrehner.bonflow.ui.LoginView;
+import ch.famfrehner.bonflow.users.AdminUserService;
 import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -85,9 +86,12 @@ class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Placeholder until the {@code users} module serves AdminUser from the database. */
+    /**
+     * Accounts of the web UI: the database ({@code admin_user}) first, then the accounts from the
+     * configuration, which bootstrap a fresh installation and stay usable as a fallback.
+     */
     @Bean
-    UserDetailsService bootstrapUsers(SecurityProperties props, PasswordEncoder encoder) {
+    UserDetailsService accounts(AdminUserService admins, SecurityProperties props, PasswordEncoder encoder) {
         List<UserDetails> users = new ArrayList<>();
         if (props.bootstrapAdminPassword() != null && !props.bootstrapAdminPassword().isBlank()) {
             users.add(User.withUsername(props.bootstrapAdminUsername())
@@ -101,6 +105,8 @@ class SecurityConfig {
                     .roles("STATION")
                     .build());
         }
-        return new InMemoryUserDetailsManager(users);
+        InMemoryUserDetailsManager configured = new InMemoryUserDetailsManager(users);
+        return username -> admins.findUserDetails(username)
+                .orElseGet(() -> configured.loadUserByUsername(username));
     }
 }

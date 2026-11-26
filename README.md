@@ -11,7 +11,7 @@ The design is in [docs/architecture.md](docs/architecture.md).
 Java 25 (LTS), Spring Boot 4.1, Vaadin 25, Spring Modulith 2, PostgreSQL 18 + Flyway, Spring Security
 (JWT for `/api`, session login for Vaadin), springdoc-openapi, escpos-coffee. Build: Maven.
 
-## Modules (`ch.famfrehner.bonflow.*`)
+## Modules (`ch.bonflow.*`)
 
 `masterdata`, `users`, `ordering`, `routing`, `printing`, `display`, `api`, `ui` (`ui.admin`,
 `ui.station`), `security`. Boundaries are verified by `ModularityTests`.

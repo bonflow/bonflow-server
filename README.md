@@ -125,6 +125,10 @@ per station device).
 
 Push a tag `vX.Y.Z`: the `release` workflow runs the tests, creates a GitHub release with the
 OpenAPI spec and publishes the image `ghcr.io/bonflow/bonflow-server:X.Y.Z` (and `latest`).
+Afterwards the workflow opens a pull request that sets the pom to the next patch snapshot
+(`v0.1.3` → `0.1.4-SNAPSHOT`); merge it. This needs *Settings → Actions → General → Allow GitHub
+Actions to create and approve pull requests*. Checks do not start on PRs created by the workflow:
+close and reopen the PR once to run CI.
 
 ## Versions
 

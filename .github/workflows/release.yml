@@ -63,3 +63,45 @@ jobs:
           tags: |
             ghcr.io/bonflow/bonflow-server:${{ env.VERSION }}
             ghcr.io/bonflow/bonflow-server:latest
+
+  # After a release, move the pom on main to the next patch snapshot (v0.1.3 -> 0.1.4-SNAPSHOT)
+  # through a pull request. The image job stamps the real version from the tag, so this only
+  # keeps local builds and the "dev"/snapshot version in the UI footer honest.
+  bump:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Open pull request with the next snapshot version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          released="${TAG#v}"
+          IFS=. read -r major minor patch <<< "${released%%-*}"
+          next="${major}.${minor}.$((patch + 1))-SNAPSHOT"
+          current="$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)"
+          if [ "$current" = "$next" ]; then
+            echo "pom is already at $next"
+            exit 0
+          fi
+          branch="chore/next-version-${next}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          mvn -B -q versions:set -DnewVersion="$next" -DgenerateBackupPoms=false
+          git commit -am "Next development version ${next}"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Next development version ${next}" \
+            --body "Automatically created after release ${TAG}."

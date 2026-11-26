@@ -103,6 +103,42 @@ public class DisplayService {
         return new StationBoard(stationId, station.getName(), openCards, doneCards);
     }
 
+    /** @throws ch.famfrehner.bonflow.ordering.OrderNotFoundException for an unknown order */
+    @Transactional(readOnly = true)
+    public OrderDetail orderDetail(UUID orderId) {
+        OrderView order = orders.get(orderId);
+        Map<Long, Article> articleById = articles.findAllById(
+                order.items().stream().map(OrderView.ItemView::articleId).collect(Collectors.toSet())).stream()
+                .collect(Collectors.toMap(Article::getId, a -> a));
+        Map<Long, String> modifierName = new HashMap<>();
+        for (ModifierGroup group : modifierGroups.findAll()) {
+            for (Modifier m : group.getModifiers()) {
+                modifierName.put(m.getId(), m.getName());
+            }
+        }
+        Map<Long, String> stationName = stations.findAll().stream()
+                .collect(Collectors.toMap(Station::getId, Station::getName));
+        Set<Long> problems = printMonitor.ticketsWithPrintProblems(
+                order.tickets().stream().map(TicketSummary::id).toList());
+
+        List<OrderDetail.Item> items = order.items().stream().map(i -> {
+            Article a = articleById.get(i.articleId());
+            return new OrderDetail.Item(i.quantity(), a == null ? "Artikel " + i.articleId() : a.getName(),
+                    i.course(), i.modifierIds().stream().sorted()
+                            .map(id -> modifierName.getOrDefault(id, "?")).toList(),
+                    i.note(), i.submissionNo(), i.status() == ItemStatus.CANCELLED);
+        }).toList();
+        List<OrderDetail.Ticket> ticketRows = order.tickets().stream()
+                .map(t -> new OrderDetail.Ticket(t.id(), stationName.getOrDefault(t.stationId(), "?"), t.kind(),
+                        t.status(), t.submissionNo(), t.createdAt(), t.printedAt(), t.doneAt(),
+                        problems.contains(t.id())))
+                .toList();
+        return new OrderDetail(order.id(),
+                tables.findById(order.tableId()).map(DiningTable::getLabel).orElse("?"),
+                waiters.displayName(order.waiterId()).orElse("?"), order.status(), order.createdAt(), order.note(),
+                items, ticketRows);
+    }
+
     /** NEW → IN_PROGRESS → DONE. */
     public void advance(long ticketId) {
         tickets.advance(ticketId);

@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -67,7 +68,7 @@ public class TicketService {
     @Transactional
     public TicketSummary advance(long ticketId) {
         StationTicket ticket = require(ticketId);
-        ticket.advance();
+        ticket.advance(clock.instant());
         return changed(ticket);
     }
 
@@ -85,10 +86,15 @@ public class TicketService {
                 .map(TicketSummary::of).toList();
     }
 
-    /** The most recently completed tickets of a station, newest first (for "recall"). */
+    @Transactional(readOnly = true)
+    public Optional<TicketSummary> find(long ticketId) {
+        return tickets.findById(ticketId).map(TicketSummary::of);
+    }
+
+    /** The most recently completed tickets of a station, by completion time, newest first (for "recall"). */
     @Transactional(readOnly = true)
     public List<TicketSummary> recentlyDone(long stationId, int limit) {
-        return tickets.findByStationIdAndStatusOrderByIdDesc(stationId, TicketStatus.DONE, PageRequest.of(0, limit))
+        return tickets.findByStationIdAndStatusOrderByDoneAtDescIdDesc(stationId, TicketStatus.DONE, PageRequest.of(0, limit))
                 .stream().map(TicketSummary::of).toList();
     }
 

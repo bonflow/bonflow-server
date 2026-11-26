@@ -25,7 +25,9 @@ public class AdminLayout extends AppLayout {
                 new SideNavItem("Kategorien", CategoriesView.class, VaadinIcon.TAGS.create()),
                 new SideNavItem("Artikel", ArticlesView.class, VaadinIcon.CART.create()),
                 new SideNavItem("Modifier", ModifierGroupsView.class, VaadinIcon.OPTIONS.create()),
-                new SideNavItem("Mitarbeitende", WaitersView.class, VaadinIcon.USERS.create()));
+                new SideNavItem("Mitarbeitende", WaitersView.class, VaadinIcon.USERS.create()),
+                new SideNavItem("Bestellungen", OrdersView.class, VaadinIcon.LIST.create()),
+                new SideNavItem("Druck-Status", PrintStatusView.class, VaadinIcon.PRINT.create()));
         addToDrawer(nav);
     }
 }

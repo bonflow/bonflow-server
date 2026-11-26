@@ -75,10 +75,16 @@ class PrintJobService {
      */
     @Transactional
     int createJobs(UUID orderId, List<Long> ticketIds) {
+        return createJobs(orderId, ticketIds, false);
+    }
+
+    /** @param reprint print again although jobs exist; the ticket is marked "NACHDRUCK" */
+    @Transactional
+    int createJobs(UUID orderId, List<Long> ticketIds, boolean reprint) {
         OrderView order = orders.get(orderId);
         List<TicketSummary> wanted = tickets.ticketsOfOrder(orderId).stream()
                 .filter(t -> ticketIds.contains(t.id()))
-                .filter(t -> !jobs.existsByTicketId(t.id()))
+                .filter(t -> reprint || !jobs.existsByTicketId(t.id()))
                 .toList();
         if (wanted.isEmpty()) {
             return 0;
@@ -113,7 +119,7 @@ class PrintJobService {
                         item.note()));
             }
             TicketContent content = new TicketContent(ticket.kind(), station.getName(), tableLabel, waiterName,
-                    ticket.createdAt(), order.note(), lines);
+                    ticket.createdAt(), order.note(), reprint, lines);
             for (Printer printer : station.getPrinters()) {
                 if (!printer.isEnabled() || printer.getProtocol() != PrinterProtocol.ESC_POS) {
                     continue;

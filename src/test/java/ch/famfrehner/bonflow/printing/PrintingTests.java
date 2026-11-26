@@ -58,6 +58,8 @@ class PrintingTests {
     @Autowired
     PrintJobRepository jobs;
     @Autowired
+    PrintAdminService printAdmin;
+    @Autowired
     WaiterService waiters;
     @Autowired
     AreaRepository areas;
@@ -184,6 +186,69 @@ class PrintingTests {
         // give the listener time to run, then verify nothing was queued
         Thread.sleep(1500);
         assertThat(jobs.count()).isZero();
+    }
+
+    @Test
+    void testPrintReportsSuccessAndFailure() throws Exception {
+        try (FakePrinter printer = FakePrinter.start()) {
+            point(barPrinter, printer.port());
+            TestPrintResult ok = printAdmin.testPrint(barPrinter.getId());
+            assertThat(ok.success()).isTrue();
+            await().atMost(Duration.ofSeconds(5)).until(() -> printer.received().size() == 1);
+            assertThat(new String(printer.received().get(0), CP858)).contains("TESTDRUCK", "Bar");
+        }
+        point(barPrinter, FakePrinter.freePort());
+        TestPrintResult failed = printAdmin.testPrint(barPrinter.getId());
+        assertThat(failed.success()).isFalse();
+        assertThat(failed.message()).contains("nicht erreichbar");
+    }
+
+    @Test
+    void statusShowsOfflinePrinterAndRetryMakesJobsDue() throws Exception {
+        point(barPrinter, FakePrinter.freePort());
+        assertThat(printAdmin.printerStatuses()).singleElement().satisfies(s -> {
+            assertThat(s.offline()).isFalse();
+            assertThat(s.pendingJobs()).isZero();
+        });
+
+        orders.submit(new SubmitOrder(UUID.randomUUID(), tableId, null,
+                List.of(new NewItem(beer.getId(), 1, null, null, null))), waiterId);
+        await().atMost(Duration.ofSeconds(15)).until(() -> jobs.count() == 1);
+        dispatcher.dispatchDue(); // fails: nothing listens
+
+        PrinterStatus status = printAdmin.printerStatuses().get(0);
+        assertThat(status.offline()).isTrue();
+        assertThat(status.pendingJobs()).isEqualTo(1);
+        assertThat(status.failingJobs()).isEqualTo(1);
+        assertThat(status.lastError()).isNotBlank();
+        assertThat(status.waitingSince()).isNotNull();
+        assertThat(printAdmin.anyPrinterOffline()).isTrue();
+
+        // backed off: not due until retryNow
+        dispatcher.dispatchDue();
+        assertThat(jobs.findAll().get(0).getAttempts()).isEqualTo(1);
+        assertThat(printAdmin.retryNow(barPrinter.getId())).isEqualTo(1);
+        dispatcher.dispatchDue();
+        assertThat(jobs.findAll().get(0).getAttempts()).isEqualTo(2);
+    }
+
+    @Test
+    void reprintQueuesANewJobMarkedAsReprint() throws Exception {
+        try (FakePrinter printer = FakePrinter.start()) {
+            point(barPrinter, printer.port());
+            OrderView order = orders.submit(new SubmitOrder(UUID.randomUUID(), tableId, null,
+                    List.of(new NewItem(beer.getId(), 1, null, null, null))), waiterId).order();
+            await().atMost(Duration.ofSeconds(15)).until(() -> jobs.count() == 1);
+            dispatcher.dispatchDue();
+            await().atMost(Duration.ofSeconds(5)).until(() -> printer.received().size() == 1);
+
+            assertThat(printAdmin.reprintTicket(order.tickets().get(0).id())).isEqualTo(1);
+            assertThat(jobs.count()).isEqualTo(2);
+            dispatcher.dispatchDue();
+            await().atMost(Duration.ofSeconds(5)).until(() -> printer.received().size() == 2);
+            assertThat(new String(printer.received().get(0), CP858)).doesNotContain("NACHDRUCK");
+            assertThat(new String(printer.received().get(1), CP858)).contains("NACHDRUCK", "Bier");
+        }
     }
 
     private void point(Printer printer, int port) {

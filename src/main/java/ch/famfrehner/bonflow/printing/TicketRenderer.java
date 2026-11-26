@@ -24,7 +24,11 @@ final class TicketRenderer {
         String divider = "-".repeat(columns);
 
         p.align(Align.CENTER).bold(true).size(2, 2).line(title(ticket.kind()));
-        p.size(1, 1).line(ticket.stationName()).bold(false);
+        p.size(1, 1);
+        if (ticket.reprint()) {
+            p.line("*** NACHDRUCK ***");
+        }
+        p.line(ticket.stationName()).bold(false);
         p.align(Align.LEFT).line(divider);
 
         p.bold(true).size(2, 2).line("Tisch " + ticket.tableLabel()).size(1, 1).bold(false);

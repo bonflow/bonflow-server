@@ -8,7 +8,7 @@
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
     <!-- 4.1.x is the line Vaadin 25.3 is built on. Move to 4.2 together with Vaadin 25.4 (GA). -->
-    <version>4.1.3</version>
+    <version>4.2.0</version>
     <relativePath/>
   </parent>
 

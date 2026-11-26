@@ -49,7 +49,7 @@ are on the local network anyway). Internal module boundaries keep the option to 
 Package-by-feature, enforced with **Spring Modulith** (module boundaries + event publication registry):
 
 ```
-ch.example.bonflow
+ch.famfrehner.bonflow
 ├── masterdata/      Table, Area, Article, ArticleCategory, Station, Printer, ModifierGroup
 ├── users/           AppUser (waiters), AdminUser, roles, PIN/password handling
 ├── ordering/        Order, OrderItem, OrderService, state machine, domain events

@@ -6,4 +6,4 @@ bonflow:
 
 logging:
   level:
-    ch.example.bonflow: DEBUG
+    ch.famfrehner.bonflow: DEBUG

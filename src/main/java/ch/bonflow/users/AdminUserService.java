@@ -71,6 +71,27 @@ public class AdminUserService {
         return users.save(user);
     }
 
+    /**
+     * Self-service password change of a signed-in user.
+     *
+     * @throws IllegalArgumentException with a user presentable message when the current password is
+     *     wrong, the new one is too short, or the account only exists in the configuration (bootstrap)
+     */
+    @Transactional
+    public void changePassword(String username, String currentPassword, String newPassword) {
+        AdminUser user = users.findByUsername(username).orElseThrow(() -> new IllegalArgumentException(
+                "Dieses Konto wird über die Konfiguration verwaltet. Lege unter Konten ein eigenes Konto an."));
+        if (currentPassword == null || !encoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Das aktuelle Passwort ist falsch.");
+        }
+        if (newPassword == null || newPassword.length() < MIN_PASSWORD_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Das neue Passwort muss mindestens " + MIN_PASSWORD_LENGTH + " Zeichen lang sein.");
+        }
+        user.setPasswordHash(encoder.encode(newPassword));
+        users.save(user);
+    }
+
     /** @throws IllegalArgumentException when the account is the last administrator */
     @Transactional
     public void delete(AdminUser user) {

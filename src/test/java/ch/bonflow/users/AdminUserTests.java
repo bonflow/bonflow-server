@@ -74,4 +74,23 @@ class AdminUserTests {
         service.delete(second);
         assertThat(repository.findByUsername("chef2")).isEmpty();
     }
+
+    @Test
+    void ownPasswordCanBeChangedWithTheCurrentOne() {
+        service.save(account("selbst", AdminUser.MANAGER), "alt-passwort-1");
+
+        assertThatThrownBy(() -> service.changePassword("selbst", "falsch-falsch", "neu-passwort-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.changePassword("selbst", "alt-passwort-1", "kurz"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.changePassword("admin", "test", "neu-passwort-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        service.changePassword("selbst", "alt-passwort-1", "neu-passwort-1");
+
+        assertThat(accounts.loadUserByUsername("selbst").getPassword()).isNotEqualTo("neu-passwort-1");
+        assertThatThrownBy(() -> service.changePassword("selbst", "alt-passwort-1", "wieder-neu-12"))
+                .isInstanceOf(IllegalArgumentException.class);
+        service.changePassword("selbst", "neu-passwort-1", "wieder-neu-12");
+    }
 }

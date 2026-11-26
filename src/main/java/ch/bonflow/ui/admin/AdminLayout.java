@@ -6,6 +6,8 @@ import ch.bonflow.users.AdminUserService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
@@ -18,6 +20,8 @@ import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.RolesAllowed;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
@@ -29,7 +33,8 @@ public class AdminLayout extends AppLayout {
 
     private final AdminUserService accounts;
 
-    public AdminLayout(AdminUserService accounts, AuthenticationContext authentication) {
+    public AdminLayout(AdminUserService accounts, AuthenticationContext authentication,
+            ObjectProvider<BuildProperties> build) {
         this.accounts = accounts;
         H1 title = new H1("BonFlow Admin");
         title.getStyle().set("font-size", "1.25rem").set("margin", "0");
@@ -60,7 +65,27 @@ public class AdminLayout extends AppLayout {
                 new SideNavItem("Konten", AccountsView.class, VaadinIcon.KEY.create()),
                 new SideNavItem("Bestellungen", OrdersView.class, VaadinIcon.LIST.create()),
                 new SideNavItem("Druck-Status", PrintStatusView.class, VaadinIcon.PRINT.create()));
-        addToDrawer(nav);
+
+        // Build info only exists in a Maven build; a plain IDE run shows "dev".
+        BuildProperties props = build.getIfAvailable();
+        String version = props == null ? "dev" : props.getVersion();
+        Div footer = new Div(new Span("BonFlow " + version), new Span(" · "),
+                link("GitHub", "https://github.com/bonflow/bonflow-server"), new Span(" · "),
+                link("bonflow.ch", "https://bonflow.ch"));
+        footer.getStyle().set("font-size", "0.85rem").set("padding", "0.75rem 1rem").set("opacity", "0.8");
+        VerticalLayout drawer = new VerticalLayout(nav, footer);
+        drawer.setPadding(false);
+        drawer.setSpacing(false);
+        drawer.setHeightFull();
+        drawer.setFlexGrow(1, nav);
+        addToDrawer(drawer);
+    }
+
+    private static Anchor link(String text, String href) {
+        Anchor a = new Anchor(href, text);
+        a.setTarget("_blank");
+        a.getElement().setAttribute("rel", "noopener noreferrer");
+        return a;
     }
 
     private void openPasswordDialog(String username) {

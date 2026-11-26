@@ -52,6 +52,66 @@ docker compose up -d --build
 Starts the app, PostgreSQL and a Caddy reverse proxy with LAN HTTPS (edit
 `docker/caddy/Caddyfile` for your hostname).
 
+### Minimal example: server and database
+
+Without the repo, with the published image (see [Release](#release)). Save as
+`docker-compose.yml` next to a `.env` file that sets `BONFLOW_DB_PASSWORD`,
+`BONFLOW_JWT_SECRET` (at least 32 bytes, e.g. `openssl rand -base64 48`) and
+`BONFLOW_ADMIN_PASSWORD`:
+
+```yaml
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bonflow
+      POSTGRES_USER: bonflow
+      POSTGRES_PASSWORD: ${BONFLOW_DB_PASSWORD:?set BONFLOW_DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql   # PostgreSQL 18 keeps version-specific data below this path
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bonflow -d bonflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/bonflow/bonflow-server:0.1.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      BONFLOW_DB_URL: jdbc:postgresql://db:5432/bonflow
+      BONFLOW_DB_USER: bonflow
+      BONFLOW_DB_PASSWORD: ${BONFLOW_DB_PASSWORD}
+      BONFLOW_JWT_SECRET: ${BONFLOW_JWT_SECRET:?set BONFLOW_JWT_SECRET (>= 32 bytes)}
+      BONFLOW_ADMIN_USERNAME: ${BONFLOW_ADMIN_USERNAME:-admin}
+      BONFLOW_ADMIN_PASSWORD: ${BONFLOW_ADMIN_PASSWORD:?set BONFLOW_ADMIN_PASSWORD}
+      TZ: Europe/Zurich
+
+volumes:
+  db-data:
+```
+
+```bash
+docker compose up -d
+```
+
+The admin UI is then at <http://localhost:8080/admin>. Flyway creates the schema on the first
+start. Notes:
+
+- Plain HTTP on port 8080 is fine for a first try; for the venue network put a TLS proxy in
+  front (the repo's `docker-compose.yml` includes Caddy) because the apps send PINs and tokens.
+- The first login uses `BONFLOW_ADMIN_USERNAME` / `BONFLOW_ADMIN_PASSWORD`. Create permanent
+  accounts under *Konten* (one per station display device, role STATION) and waiters under
+  *Mitarbeitende*.
+- The printers (ESC/POS over TCP, port 9100) must be reachable from the `app` container.
+- Back up the `db-data` volume (`docker compose exec db pg_dump -U bonflow bonflow`).
+
 ## Status
 
 Functional: PIN login with JWT, master data API with ETag, order flow (submit, follow-up, storno,

@@ -89,6 +89,7 @@ class NewOrderDialog extends Dialog {
 
     private final OrderService orders;
     private final Runnable onCreated;
+    private final boolean coursesEnabled;
 
     private final List<DiningTable> tables;
     private final List<Area> areas;
@@ -119,9 +120,10 @@ class NewOrderDialog extends Dialog {
 
     NewOrderDialog(OrderService orders, DiningTableRepository tableRepository, AreaRepository areaRepository,
             AppUserRepository users, ArticleCategoryRepository categoryRepository,
-            ArticleRepository articleRepository, Runnable onCreated) {
+            ArticleRepository articleRepository, boolean coursesEnabled, Runnable onCreated) {
         this.orders = orders;
         this.onCreated = onCreated;
+        this.coursesEnabled = coursesEnabled;
         this.tables = tableRepository.findAll().stream().filter(DiningTable::isActive)
                 .sorted(Comparator.comparing(DiningTable::getLabel)).toList();
         this.areas = areaRepository.findAll().stream().sorted(Comparator.comparing(Area::getName)).toList();
@@ -213,8 +215,11 @@ class NewOrderDialog extends Dialog {
                 .set("width", "100%");
         orderNote.setMaxLength(500);
         orderNote.setWidthFull();
-        stepItems.add(context, categoryRows, articleButtons, new H4("Gang für neue Positionen"), courseButtons,
-                new H4("Bestellung"), cart, orderNote);
+        stepItems.add(context, categoryRows, articleButtons);
+        if (coursesEnabled) {
+            stepItems.add(new H4("Gang für neue Positionen"), courseButtons);
+        }
+        stepItems.add(new H4("Bestellung"), cart, orderNote);
         if (!categories.isEmpty()) {
             categoryPath.add(roots().isEmpty() ? categories.get(0) : roots().get(0));
         }

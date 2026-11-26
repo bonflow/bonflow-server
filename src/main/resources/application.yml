@@ -51,7 +51,7 @@ bonflow:
     jwt-secret: ${BONFLOW_JWT_SECRET:}
     access-token-ttl: 15m
     refresh-token-ttl: 30d
-    # Bootstrap admin until the `users` module provides AdminUser persistence.
+    # Bootstrap accounts; accounts in the database (admin UI: Konten) are checked first.
     bootstrap-admin-username: ${BONFLOW_ADMIN_USERNAME:admin}
     bootstrap-admin-password: ${BONFLOW_ADMIN_PASSWORD:}
     # Shared login of the station displays (role STATION); disabled while the password is blank.

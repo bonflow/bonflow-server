@@ -77,6 +77,12 @@ class PrintJob {
         updatedAt = now;
     }
 
+    /** Makes a pending job due immediately, e.g. after the printer was fixed. */
+    void retryNow(Instant now) {
+        nextAttemptAt = now;
+        updatedAt = now;
+    }
+
     Long getId() {
         return id;
     }
@@ -103,6 +109,10 @@ class PrintJob {
 
     String getLastError() {
         return lastError;
+    }
+
+    Instant getCreatedAt() {
+        return createdAt;
     }
 
     Instant getNextAttemptAt() {

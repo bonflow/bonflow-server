@@ -51,6 +51,9 @@ class StationTicket {
     @Column(name = "printed_at")
     private Instant printedAt;
 
+    @Column(name = "done_at")
+    private Instant doneAt;
+
     @Version
     private Long version;
 
@@ -73,12 +76,15 @@ class StationTicket {
     }
 
     /** NEW → IN_PROGRESS → DONE. */
-    void advance() {
+    void advance(Instant now) {
         status = switch (status) {
             case NEW -> TicketStatus.IN_PROGRESS;
             case IN_PROGRESS -> TicketStatus.DONE;
             case DONE -> throw new IllegalStateException("Ticket " + id + " is already done");
         };
+        if (status == TicketStatus.DONE) {
+            doneAt = now;
+        }
     }
 
     /** DONE → IN_PROGRESS ("recall" of a bumped ticket). */
@@ -87,6 +93,7 @@ class StationTicket {
             throw new IllegalStateException("Only done tickets can be recalled, ticket " + id + " is " + status);
         }
         status = TicketStatus.IN_PROGRESS;
+        doneAt = null;
     }
 
     void markPrinted(Instant when) {
@@ -123,6 +130,10 @@ class StationTicket {
 
     Instant getPrintedAt() {
         return printedAt;
+    }
+
+    Instant getDoneAt() {
+        return doneAt;
     }
 
     Set<Long> getItemIds() {

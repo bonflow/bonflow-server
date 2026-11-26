@@ -54,6 +54,9 @@ bonflow:
     # Bootstrap admin until the `users` module provides AdminUser persistence.
     bootstrap-admin-username: ${BONFLOW_ADMIN_USERNAME:admin}
     bootstrap-admin-password: ${BONFLOW_ADMIN_PASSWORD:}
+    # Shared login of the station displays (role STATION); disabled while the password is blank.
+    station-username: ${BONFLOW_STATION_USERNAME:station}
+    station-password: ${BONFLOW_STATION_PASSWORD:}
   printing:
     # Tickets are sent by a worker every poll-interval; failed jobs are retried with backoff.
     poll-interval: 2s

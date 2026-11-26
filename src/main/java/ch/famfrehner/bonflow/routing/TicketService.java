@@ -7,10 +7,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,10 +27,12 @@ public class TicketService {
 
     private final TicketRepository tickets;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    TicketService(TicketRepository tickets, Clock clock) {
+    TicketService(TicketRepository tickets, Clock clock, ApplicationEventPublisher events) {
         this.tickets = tickets;
         this.clock = clock;
+        this.events = events;
     }
 
     /** One ticket per distinct station, in order of first appearance. */
@@ -63,20 +68,44 @@ public class TicketService {
     @Transactional
     public TicketSummary advance(long ticketId) {
         StationTicket ticket = require(ticketId);
-        ticket.advance();
-        return TicketSummary.of(ticket);
+        ticket.advance(clock.instant());
+        return changed(ticket);
     }
 
     @Transactional
     public TicketSummary recall(long ticketId) {
         StationTicket ticket = require(ticketId);
         ticket.recall();
-        return TicketSummary.of(ticket);
+        return changed(ticket);
+    }
+
+    /** Tickets of a station that are not done yet, oldest first. */
+    @Transactional(readOnly = true)
+    public List<TicketSummary> openTickets(long stationId) {
+        return tickets.findAllByStationIdAndStatusNotOrderById(stationId, TicketStatus.DONE).stream()
+                .map(TicketSummary::of).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<TicketSummary> find(long ticketId) {
+        return tickets.findById(ticketId).map(TicketSummary::of);
+    }
+
+    /** The most recently completed tickets of a station, by completion time, newest first (for "recall"). */
+    @Transactional(readOnly = true)
+    public List<TicketSummary> recentlyDone(long stationId, int limit) {
+        return tickets.findByStationIdAndStatusOrderByDoneAtDescIdDesc(stationId, TicketStatus.DONE, PageRequest.of(0, limit))
+                .stream().map(TicketSummary::of).toList();
     }
 
     @Transactional
     public void markPrinted(long ticketId) {
         require(ticketId).markPrinted(clock.instant());
+    }
+
+    private TicketSummary changed(StationTicket ticket) {
+        events.publishEvent(new TicketStatusChanged(ticket.getId(), ticket.getStationId(), ticket.getStatus()));
+        return TicketSummary.of(ticket);
     }
 
     private StationTicket require(long ticketId) {

@@ -3,6 +3,13 @@ package ch.famfrehner.bonflow.ui.admin;
 import ch.famfrehner.bonflow.masterdata.Printer;
 import ch.famfrehner.bonflow.masterdata.PrinterProtocol;
 import ch.famfrehner.bonflow.masterdata.PrinterRepository;
+import ch.famfrehner.bonflow.printing.PrintAdminService;
+import ch.famfrehner.bonflow.printing.TestPrintResult;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
@@ -17,8 +24,11 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed({"ADMIN", "MANAGER"})
 public class PrintersView extends CrudView<Printer> {
 
-    public PrintersView(PrinterRepository printers) {
+    private final PrintAdminService printAdmin;
+
+    public PrintersView(PrinterRepository printers, PrintAdminService printAdmin) {
         super("Drucker", printers, Printer::new);
+        this.printAdmin = printAdmin;
         init();
     }
 
@@ -29,6 +39,19 @@ public class PrintersView extends CrudView<Printer> {
         grid.addColumn(Printer::getProtocol).setHeader("Protokoll");
         grid.addColumn(p -> p.getPaperWidthMm() + " mm").setHeader("Papier");
         grid.addColumn(p -> p.isEnabled() ? "ja" : "nein").setHeader("Aktiv");
+        grid.addComponentColumn(p -> {
+            Button test = new Button("Testdruck", VaadinIcon.PRINT.create(), e -> testPrint(p));
+            test.addThemeVariants(ButtonVariant.LUMO_SMALL);
+            return test;
+        }).setHeader("");
+    }
+
+    private void testPrint(Printer printer) {
+        TestPrintResult result = printAdmin.testPrint(printer.getId());
+        Notification notification = Notification.show(
+                printer.getName() + ": " + result.message(), 5000, Notification.Position.MIDDLE);
+        notification.addThemeVariants(result.success()
+                ? NotificationVariant.LUMO_SUCCESS : NotificationVariant.LUMO_ERROR);
     }
 
     @Override

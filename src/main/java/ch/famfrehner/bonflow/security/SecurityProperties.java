@@ -12,6 +12,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param refreshTokenTtl          lifetime of refresh tokens
  * @param bootstrapAdminUsername   admin created at startup until AdminUser persistence exists
  * @param bootstrapAdminPassword   its plain password; the admin is not created when blank
+ * @param stationUsername          shared account of the station display devices (role STATION)
+ * @param stationPassword          its plain password; the account is not created when blank
  */
 @ConfigurationProperties("bonflow.security")
 public record SecurityProperties(
@@ -19,5 +21,7 @@ public record SecurityProperties(
         Duration accessTokenTtl,
         Duration refreshTokenTtl,
         String bootstrapAdminUsername,
-        String bootstrapAdminPassword) {
+        String bootstrapAdminPassword,
+        String stationUsername,
+        String stationPassword) {
 }

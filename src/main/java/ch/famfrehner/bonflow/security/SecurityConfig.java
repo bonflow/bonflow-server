@@ -1,5 +1,6 @@
 package ch.famfrehner.bonflow.security;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import ch.famfrehner.bonflow.ui.LoginView;
@@ -12,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -85,14 +87,20 @@ class SecurityConfig {
 
     /** Placeholder until the {@code users} module serves AdminUser from the database. */
     @Bean
-    UserDetailsService bootstrapAdmin(SecurityProperties props, PasswordEncoder encoder) {
-        String password = props.bootstrapAdminPassword();
-        if (password == null || password.isBlank()) {
-            return new InMemoryUserDetailsManager(List.of());
+    UserDetailsService bootstrapUsers(SecurityProperties props, PasswordEncoder encoder) {
+        List<UserDetails> users = new ArrayList<>();
+        if (props.bootstrapAdminPassword() != null && !props.bootstrapAdminPassword().isBlank()) {
+            users.add(User.withUsername(props.bootstrapAdminUsername())
+                    .password(encoder.encode(props.bootstrapAdminPassword()))
+                    .roles("ADMIN")
+                    .build());
         }
-        return new InMemoryUserDetailsManager(User.withUsername(props.bootstrapAdminUsername())
-                .password(encoder.encode(password))
-                .roles("ADMIN")
-                .build());
+        if (props.stationPassword() != null && !props.stationPassword().isBlank()) {
+            users.add(User.withUsername(props.stationUsername())
+                    .password(encoder.encode(props.stationPassword()))
+                    .roles("STATION")
+                    .build());
+        }
+        return new InMemoryUserDetailsManager(users);
     }
 }

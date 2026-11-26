@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -293,10 +294,54 @@ class OrderFlowTests {
         long ticket = ticketOf(view, barId).id();
 
         assertThat(tickets.advance(ticket).status()).isEqualTo(TicketStatus.IN_PROGRESS);
-        assertThat(tickets.advance(ticket).status()).isEqualTo(TicketStatus.DONE);
+        assertThat(tickets.find(ticket)).get().satisfies(t -> assertThat(t.doneAt()).isNull());
+        TicketSummary done = tickets.advance(ticket);
+        assertThat(done.status()).isEqualTo(TicketStatus.DONE);
+        assertThat(done.doneAt()).isNotNull();
         assertThatThrownBy(() -> tickets.advance(ticket)).isInstanceOf(IllegalStateException.class);
-        assertThat(tickets.recall(ticket).status()).isEqualTo(TicketStatus.IN_PROGRESS);
+        TicketSummary recalled = tickets.recall(ticket);
+        assertThat(recalled.status()).isEqualTo(TicketStatus.IN_PROGRESS);
+        assertThat(recalled.doneAt()).isNull();
         assertThatThrownBy(() -> tickets.recall(ticket)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void historyCanBeFilteredByTableWaiterStatusAndTime() {
+        AppUser ben = new AppUser();
+        ben.setDisplayName("Ben");
+        ben.setLogin("ben");
+        long benId = waiters.save(ben, "5678").getId();
+        DiningTable other = new DiningTable();
+        other.setArea(areas.findAll().get(0));
+        other.setLabel("T2");
+        long otherTable = tables.save(other).getId();
+
+        UUID annaOrder = UUID.randomUUID();
+        orders.submit(order(annaOrder, line(beer, 1), line(schnitzel, 2)), waiterId);
+        UUID benOrder = UUID.randomUUID();
+        orders.submit(new SubmitOrder(benOrder, otherTable, "Geburtstag", List.of(line(beer, 1))), benId);
+        orders.complete(benOrder);
+
+        assertThat(orders.search(OrderFilter.none(), 50)).extracting(OrderSummary::id)
+                .containsExactlyInAnyOrder(annaOrder, benOrder);
+        assertThat(orders.search(new OrderFilter(null, null, otherTable, null, null), 50))
+                .singleElement().satisfies(s -> {
+                    assertThat(s.id()).isEqualTo(benOrder);
+                    assertThat(s.tableLabel()).isEqualTo("T2");
+                    assertThat(s.waiterName()).isEqualTo("Ben");
+                    assertThat(s.note()).isEqualTo("Geburtstag");
+                    assertThat(s.status()).isEqualTo(OrderStatus.COMPLETED);
+                });
+        assertThat(orders.search(new OrderFilter(null, null, null, waiterId, OrderStatus.SUBMITTED), 50))
+                .singleElement().satisfies(s -> {
+                    assertThat(s.id()).isEqualTo(annaOrder);
+                    assertThat(s.activeItems()).isEqualTo(2);
+                });
+        Instant now = Instant.now();
+        assertThat(orders.search(new OrderFilter(now.minusSeconds(3600), now.plusSeconds(3600), null, null, null), 50))
+                .hasSize(2);
+        assertThat(orders.search(new OrderFilter(now.plusSeconds(60), null, null, null, null), 50)).isEmpty();
+        assertThat(orders.search(OrderFilter.none(), 1)).hasSize(1);
     }
 
     @Test

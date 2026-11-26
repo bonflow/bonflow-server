@@ -3,6 +3,7 @@ bonflow:
   security:
     jwt-secret: dev-only-secret-change-me-0123456789abcdef
     bootstrap-admin-password: admin
+    station-password: station
 
 logging:
   level:

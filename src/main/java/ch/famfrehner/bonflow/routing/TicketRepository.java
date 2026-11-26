@@ -1,0 +1,22 @@
+package ch.famfrehner.bonflow.routing;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+interface TicketRepository extends JpaRepository<StationTicket, Long> {
+
+    List<StationTicket> findAllByOrderIdOrderById(UUID orderId);
+
+    /** Station each (non-storno) ticketed item went to. */
+    @Query("""
+            select new ch.famfrehner.bonflow.routing.ItemStation(i, t.stationId)
+            from StationTicket t join t.itemIds i
+            where i in :itemIds and t.kind <> ch.famfrehner.bonflow.routing.TicketKind.STORNO
+            """)
+    List<ItemStation> findStationsOfItems(@Param("itemIds") Collection<Long> itemIds);
+}

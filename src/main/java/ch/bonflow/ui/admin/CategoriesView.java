@@ -41,6 +41,7 @@ public class CategoriesView extends CrudView<ArticleCategory> {
     @Override
     protected void configureGrid() {
         grid.addColumn(ArticleCategory::getName).setHeader("Name");
+        grid.addComponentColumn(c -> ColorField.dot(c.getColor())).setHeader("Farbe").setAutoWidth(true).setFlexGrow(0);
         grid.addColumn(ArticleCategory::getSortOrder).setHeader("Reihenfolge");
         grid.addColumn(c -> c.getDefaultStation() == null ? "" : c.getDefaultStation().getName())
                 .setHeader("Standard-Station");
@@ -68,7 +69,9 @@ public class CategoriesView extends CrudView<ArticleCategory> {
         binder.forField(station)
                 .bind(ArticleCategory::getDefaultStation, ArticleCategory::setDefaultStation);
         binder.forField(parent).bind(ArticleCategory::getParent, ArticleCategory::setParent);
-        form.add(name, sortOrder, station, parent);
+        ColorField color = new ColorField("Farbe (leer = Farbe der Oberkategorie)");
+        binder.forField(color).bind(ArticleCategory::getColor, ArticleCategory::setColor);
+        form.add(name, sortOrder, station, parent, color);
     }
 
     @Override

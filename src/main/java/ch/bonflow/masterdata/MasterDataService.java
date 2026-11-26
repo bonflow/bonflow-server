@@ -36,12 +36,13 @@ public class MasterDataService {
         return new MasterDataSnapshot(
                 areas.findAll().stream()
                         .sorted(Comparator.comparing(Area::getName))
-                        .map(a -> new MasterDataSnapshot.AreaDto(a.getId(), a.getName()))
+                        .map(a -> new MasterDataSnapshot.AreaDto(a.getId(), a.getName(), a.getColor()))
                         .toList(),
                 tables.findAll().stream()
                         .filter(DiningTable::isActive)
                         .sorted(Comparator.comparing(DiningTable::getLabel))
-                        .map(t -> new MasterDataSnapshot.TableDto(t.getId(), t.getArea().getId(), t.getLabel()))
+                        .map(t -> new MasterDataSnapshot.TableDto(t.getId(), t.getArea().getId(), t.getLabel(),
+                                t.getColor() != null ? t.getColor() : t.getArea().getColor()))
                         .toList(),
                 stations.findAll().stream()
                         .sorted(Comparator.comparing(Station::getName))
@@ -49,7 +50,7 @@ public class MasterDataService {
                         .toList(),
                 categories.findAllByOrderBySortOrderAscNameAsc().stream()
                         .map(c -> new MasterDataSnapshot.CategoryDto(c.getId(), c.getName(), c.getSortOrder(),
-                                c.getParent() == null ? null : c.getParent().getId()))
+                                c.getParent() == null ? null : c.getParent().getId(), categoryColor(c)))
                         .toList(),
                 articles.findAll().stream()
                         .filter(Article::isActive)
@@ -84,5 +85,14 @@ public class MasterDataService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static String categoryColor(ArticleCategory category) {
+        for (ArticleCategory c = category; c != null; c = c.getParent()) {
+            if (c.getColor() != null) {
+                return c.getColor();
+            }
+        }
+        return null;
     }
 }

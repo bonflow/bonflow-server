@@ -21,10 +21,10 @@ public record MasterDataDocument(
         List<CategoryEntry> categories,
         List<ArticleEntry> articles) {
 
-    public record AreaEntry(String name) {
+    public record AreaEntry(String name, String color) {
     }
 
-    public record TableEntry(String label, String area, Boolean active) {
+    public record TableEntry(String label, String area, Boolean active, String color) {
     }
 
     public record PrinterEntry(String name, String host, Integer port, String protocol, Integer paperWidthMm,
@@ -38,7 +38,7 @@ public record MasterDataDocument(
     }
 
     /** @param path names from the top category down to this one, e.g. ["Getränke", "Bier"] */
-    public record CategoryEntry(List<String> path, Integer sortOrder, String defaultStation) {
+    public record CategoryEntry(List<String> path, Integer sortOrder, String defaultStation, String color) {
     }
 
     /** @param category path of the category, see {@link CategoryEntry} */

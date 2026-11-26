@@ -8,6 +8,8 @@ import java.util.UUID;
 
 import ch.bonflow.display.DisplayService;
 import ch.bonflow.display.OrderDetail;
+import ch.bonflow.masterdata.AreaRepository;
+import ch.bonflow.masterdata.ArticleCategoryRepository;
 import ch.bonflow.masterdata.ArticleRepository;
 import ch.bonflow.masterdata.DiningTable;
 import ch.bonflow.masterdata.DiningTableRepository;
@@ -59,7 +61,8 @@ public class OrdersView extends VerticalLayout {
     private final ComboBox<OrderStatus> status = new ComboBox<>("Status");
 
     public OrdersView(OrderService orders, DisplayService display, PrintAdminService printAdmin,
-            DiningTableRepository tables, AppUserRepository users, ArticleRepository articles) {
+            DiningTableRepository tables, AppUserRepository users, ArticleRepository articles,
+            AreaRepository areas, ArticleCategoryRepository categories) {
         this.orders = orders;
         this.display = display;
         this.printAdmin = printAdmin;
@@ -90,7 +93,7 @@ public class OrdersView extends VerticalLayout {
         grid.addItemClickListener(e -> openDetail(e.getItem().id()));
 
         Button create = new Button("Neue Bestellung", VaadinIcon.PLUS.create(),
-                e -> new NewOrderDialog(orders, tables, users, articles, this::refresh).open());
+                e -> new NewOrderDialog(orders, tables, areas, users, categories, articles, this::refresh).open());
         create.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         add(new H2("Bestellungen"), create, filters, grid,

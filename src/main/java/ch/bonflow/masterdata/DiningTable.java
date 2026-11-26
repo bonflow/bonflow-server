@@ -20,6 +20,18 @@ public class DiningTable extends AbstractEntity {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Optional button colour as {@code #RRGGBB}; without one the area's colour applies. */
+    @Column(length = 7)
+    private String color;
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = ColorCodes.normalize(color);
+    }
+
     public Area getArea() {
         return area;
     }

@@ -24,12 +24,15 @@ public class AreasView extends CrudView<Area> {
     @Override
     protected void configureGrid() {
         grid.addColumn(Area::getName).setHeader("Name").setSortable(true);
+        grid.addComponentColumn(a -> ColorField.dot(a.getColor())).setHeader("Farbe").setAutoWidth(true).setFlexGrow(0);
     }
 
     @Override
     protected void buildForm(FormLayout form) {
         TextField name = new TextField("Name");
         binder.forField(name).asRequired("Name erforderlich").bind(Area::getName, Area::setName);
-        form.add(name);
+        ColorField color = new ColorField("Farbe");
+        binder.forField(color).bind(Area::getColor, Area::setColor);
+        form.add(name, color);
     }
 }

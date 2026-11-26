@@ -77,12 +77,12 @@ public class MasterDataTransferService {
 
     private List<AreaEntry> exportAreas() {
         return areaRepository.findAll().stream().sorted(Comparator.comparing(Area::getName))
-                .map(a -> new AreaEntry(a.getName())).toList();
+                .map(a -> new AreaEntry(a.getName(), a.getColor())).toList();
     }
 
     private List<TableEntry> exportTables() {
         return tableRepository.findAll().stream().sorted(Comparator.comparing(DiningTable::getLabel))
-                .map(t -> new TableEntry(t.getLabel(), t.getArea().getName(), t.isActive())).toList();
+                .map(t -> new TableEntry(t.getLabel(), t.getArea().getName(), t.isActive(), t.getColor())).toList();
     }
 
     private List<PrinterEntry> exportPrinters() {
@@ -108,7 +108,7 @@ public class MasterDataTransferService {
         return categoryRepository.findAll().stream()
                 .sorted(Comparator.comparing((ArticleCategory c) -> String.join("\u0000", pathOf(c))))
                 .map(c -> new CategoryEntry(pathOf(c), c.getSortOrder(),
-                        c.getDefaultStation() == null ? null : c.getDefaultStation().getName()))
+                        c.getDefaultStation() == null ? null : c.getDefaultStation().getName(), c.getColor()))
                 .toList();
     }
 
@@ -120,6 +120,14 @@ public class MasterDataTransferService {
                         a.isActive(), a.getStationOverride() == null ? null : a.getStationOverride().getName(),
                         a.getModifierGroups().stream().map(ModifierGroup::getName).sorted().toList()))
                 .toList();
+    }
+
+    private static String color(String value, String context) {
+        try {
+            return ColorCodes.normalize(value);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidTransferException(context + ": " + e.getMessage());
+        }
     }
 
     private static List<String> pathOf(ArticleCategory category) {
@@ -238,9 +246,13 @@ public class MasterDataTransferService {
                 if (area == null) {
                     area = new Area();
                     area.setName(name);
+                    area.setColor(color(entry.color(), "Bereich " + name));
                     areas.put(name, areaRepository.save(area));
                     created++;
                 } else {
+                    if (entry.color() != null) {
+                        area.setColor(color(entry.color(), "Bereich " + name));
+                    }
                     updated++;
                 }
             }
@@ -264,6 +276,9 @@ public class MasterDataTransferService {
                 }
                 table.setArea(area);
                 table.setActive(entry.active() == null || entry.active());
+                if (entry.color() != null) {
+                    table.setColor(color(entry.color(), "Tisch " + label));
+                }
                 if (isNew) {
                     tables.put(label, tableRepository.save(table));
                     created++;
@@ -396,6 +411,9 @@ public class MasterDataTransferService {
                 }
                 category.setSortOrder(entry.sortOrder() == null ? 0 : entry.sortOrder());
                 category.setDefaultStation(station(entry.defaultStation(), "Kategorie " + label));
+                if (entry.color() != null) {
+                    category.setColor(color(entry.color(), "Kategorie " + label));
+                }
                 if (isNew) {
                     categories.put(List.copyOf(path), categoryRepository.save(category));
                     created++;

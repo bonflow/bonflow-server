@@ -32,6 +32,8 @@ public class TablesView extends CrudView<DiningTable> {
     protected void configureGrid() {
         grid.addColumn(DiningTable::getLabel).setHeader("Tisch").setSortable(true);
         grid.addColumn(t -> t.getArea().getName()).setHeader("Bereich").setSortable(true);
+        grid.addComponentColumn(t -> ColorField.dot(t.getColor() != null ? t.getColor() : t.getArea().getColor()))
+                .setHeader("Farbe").setAutoWidth(true).setFlexGrow(0);
         grid.addColumn(t -> t.isActive() ? "ja" : "nein").setHeader("Aktiv");
     }
 
@@ -47,6 +49,8 @@ public class TablesView extends CrudView<DiningTable> {
         binder.forField(area).asRequired("Bereich erforderlich")
                 .bind(DiningTable::getArea, DiningTable::setArea);
         binder.forField(active).bind(DiningTable::isActive, DiningTable::setActive);
-        form.add(label, area, active);
+        ColorField color = new ColorField("Farbe (leer = Farbe des Bereichs)");
+        binder.forField(color).bind(DiningTable::getColor, DiningTable::setColor);
+        form.add(label, area, color, active);
     }
 }

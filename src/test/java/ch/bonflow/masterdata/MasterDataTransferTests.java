@@ -82,6 +82,27 @@ class MasterDataTransferTests {
     }
 
     @Test
+    void colorsSurviveExportImportAndInvalidOnesAreRejected() {
+        Fixture fixture = createData();
+        fixture.area().setColor("#1e88e5");
+        fixture.parent().setColor("#E53935");
+        em.flush();
+        byte[] file = transfer.export(ALL);
+        assertThat(new String(file, StandardCharsets.UTF_8)).contains("#1E88E5", "#E53935");
+
+        fixture.area().setColor(null);
+        flushAndClear();
+        transfer.importData(transfer.parse(file), ALL);
+        flushAndClear();
+        assertThat(areas.findAll()).filteredOn(a -> a.getName().equals("T-Terrasse"))
+                .extracting(Area::getColor).containsExactly("#1E88E5");
+
+        String bad = new String(file, StandardCharsets.UTF_8).replace("#1E88E5", "blau");
+        assertThatThrownBy(() -> transfer.importData(transfer.parse(bad.getBytes(StandardCharsets.UTF_8)), ALL))
+                .isInstanceOf(InvalidTransferException.class);
+    }
+
+    @Test
     void importingTwiceUpdatesInsteadOfDuplicating() {
         createData();
         byte[] file = transfer.export(ALL);

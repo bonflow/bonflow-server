@@ -25,6 +25,18 @@ public class ArticleCategory extends AbstractEntity {
     @JoinColumn(name = "parent_id")
     private ArticleCategory parent;
 
+    /** Optional button colour as {@code #RRGGBB}. */
+    @Column(length = 7)
+    private String color;
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = ColorCodes.normalize(color);
+    }
+
     public String getName() {
         return name;
     }

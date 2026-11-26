@@ -1,0 +1,29 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7   # pin to a commit SHA
+      - uses: actions/setup-java@v6   # pin to a commit SHA
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      # Testcontainers (PostgreSQL) needs Docker, which ubuntu-latest provides.
+      - name: Build and test
+        run: mvn -B verify
+      # The OpenAPI spec is the contract with bonflow-app (written by ApplicationSmokeTest).
+      - name: Publish OpenAPI spec
+        uses: actions/upload-artifact@v7   # pin to a commit SHA
+        with:
+          name: openapi
+          path: target/openapi.json
+          if-no-files-found: error

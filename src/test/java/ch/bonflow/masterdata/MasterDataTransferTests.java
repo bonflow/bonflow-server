@@ -84,13 +84,14 @@ class MasterDataTransferTests {
     @Test
     void colorsSurviveExportImportAndInvalidOnesAreRejected() {
         Fixture fixture = createData();
-        fixture.area().setColor("#1e88e5");
-        fixture.parent().setColor("#E53935");
+        Area area = areas.findById(fixture.area().getId()).orElseThrow();
+        area.setColor("#1e88e5");
+        categories.findById(fixture.parent().getId()).orElseThrow().setColor("#E53935");
         em.flush();
         byte[] file = transfer.export(ALL);
         assertThat(new String(file, StandardCharsets.UTF_8)).contains("#1E88E5", "#E53935");
 
-        fixture.area().setColor(null);
+        area.setColor(null);
         flushAndClear();
         transfer.importData(transfer.parse(file), ALL);
         flushAndClear();

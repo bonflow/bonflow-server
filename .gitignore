@@ -48,3 +48,6 @@ vaadin-dev-bundle/
 *.iml
 .vscode/
 .DS_Store
+
+# Database dumps written by the backup service
+/backups/

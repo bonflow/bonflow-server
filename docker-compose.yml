@@ -34,6 +34,26 @@ services:
       BONFLOW_STATION_PASSWORD: ${BONFLOW_STATION_PASSWORD:-}
       TZ: ${TZ:-Europe/Zurich}
 
+  # Daily database dumps into ./backups, 14 days kept (see docs/backup.md).
+  backup:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: bonflow
+      PGDATABASE: bonflow
+      PGPASSWORD: ${BONFLOW_DB_PASSWORD:?set BONFLOW_DB_PASSWORD}
+      BACKUP_INTERVAL_SECONDS: ${BONFLOW_BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP_DAYS: ${BONFLOW_BACKUP_KEEP_DAYS:-14}
+      TZ: ${TZ:-Europe/Zurich}
+    entrypoint: ["sh", "/backup.sh"]
+    volumes:
+      - ./backups:/backups
+      - ./docker/backup/backup.sh:/backup.sh:ro
+
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped

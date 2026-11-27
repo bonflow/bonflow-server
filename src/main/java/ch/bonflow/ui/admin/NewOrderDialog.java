@@ -20,6 +20,7 @@ import ch.bonflow.masterdata.DiningTable;
 import ch.bonflow.masterdata.DiningTableRepository;
 import ch.bonflow.masterdata.Modifier;
 import ch.bonflow.masterdata.ModifierGroup;
+import ch.bonflow.ordering.AddItems;
 import ch.bonflow.ordering.NewItem;
 import ch.bonflow.ordering.OrderConflictException;
 import ch.bonflow.ordering.OrderRejectedException;
@@ -50,6 +51,10 @@ import com.vaadin.flow.component.textfield.TextField;
 class NewOrderDialog extends Dialog {
 
     private static final int MAX_COURSE = 5;
+
+    /** Follow-up submission for an existing open order: table is fixed, no waiter needed. */
+    record Addition(UUID orderId, DiningTable table, int submissionNo) {
+    }
 
     private static final class Line {
         final Article article;
@@ -90,6 +95,7 @@ class NewOrderDialog extends Dialog {
     private final OrderService orders;
     private final Runnable onCreated;
     private final boolean coursesEnabled;
+    private final Addition addition;
 
     private final List<DiningTable> tables;
     private final List<Area> areas;
@@ -120,10 +126,12 @@ class NewOrderDialog extends Dialog {
 
     NewOrderDialog(OrderService orders, DiningTableRepository tableRepository, AreaRepository areaRepository,
             AppUserRepository users, ArticleCategoryRepository categoryRepository,
-            ArticleRepository articleRepository, boolean coursesEnabled, Runnable onCreated) {
+            ArticleRepository articleRepository, boolean coursesEnabled, Addition addition,
+            Runnable onCreated) {
         this.orders = orders;
         this.onCreated = onCreated;
         this.coursesEnabled = coursesEnabled;
+        this.addition = addition;
         this.tables = tableRepository.findAll().stream().filter(DiningTable::isActive)
                 .sorted(Comparator.comparing(DiningTable::getLabel)).toList();
         this.areas = areaRepository.findAll().stream().sorted(Comparator.comparing(Area::getName)).toList();
@@ -131,7 +139,7 @@ class NewOrderDialog extends Dialog {
         this.articles = articleRepository.findAll().stream().filter(Article::isActive)
                 .sorted(Comparator.comparing(Article::getName)).toList();
 
-        setHeaderTitle("Neue Bestellung");
+        setHeaderTitle(addition == null ? "Neue Bestellung" : "Nachbestellung");
         setWidth("62rem");
         setMaxWidth("96vw");
         setHeight("90vh");
@@ -139,7 +147,12 @@ class NewOrderDialog extends Dialog {
         buildTableStep(users);
         buildItemStep();
         add(stepTable, stepItems);
-        showStep(1);
+        if (addition != null) {
+            selectedTable = addition.table();
+            showStep(2);
+        } else {
+            showStep(1);
+        }
 
         back.addClickListener(e -> showStep(1));
         create.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
@@ -280,9 +293,14 @@ class NewOrderDialog extends Dialog {
             if (current != null && !isIn(article.getCategory(), current)) {
                 continue;
             }
-            articleButtons.add(new TouchButton(article.getName(), article.getPrice() == null ? null
-                    : article.getPrice().toPlainString(), categoryColor(article.getCategory()), false,
-                    () -> addArticle(article)));
+            TouchButton tile = new TouchButton(article.getName(), article.isSoldOut() ? "ausverkauft"
+                    : article.getPrice() == null ? null : article.getPrice().toPlainString(),
+                    article.isSoldOut() ? null : categoryColor(article.getCategory()), false,
+                    () -> addArticle(article));
+            if (article.isSoldOut()) {
+                tile.getStyle().set("opacity", "0.45").set("text-decoration", "line-through");
+            }
+            articleButtons.add(tile);
         }
     }
 
@@ -307,6 +325,10 @@ class NewOrderDialog extends Dialog {
     }
 
     private void addArticle(Article article) {
+        if (article.isSoldOut()) {
+            Notification.show(article.getName() + " ist ausverkauft.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
         if (article.getModifierGroups().isEmpty()) {
             addLine(article, new LinkedHashSet<>(), null);
         } else {
@@ -448,17 +470,17 @@ class NewOrderDialog extends Dialog {
     private void showStep(int step) {
         stepTable.setVisible(step == 1);
         stepItems.setVisible(step == 2);
-        back.setVisible(step == 2);
+        back.setVisible(step == 2 && addition == null);
         create.setVisible(step == 2);
         if (step == 2) {
             context.setText("Tisch " + selectedTable.getLabel() + " · " + selectedTable.getArea().getName()
-                    + " · " + waiter.getValue().getDisplayName());
+                    + (addition == null ? " · " + waiter.getValue().getDisplayName() : " · Nachbestellung"));
         }
         renderTableStep();
     }
 
     private void submit() {
-        if (selectedTable == null || waiter.getValue() == null) {
+        if (selectedTable == null || (addition == null && waiter.getValue() == null)) {
             Notification.show("Bitte Tisch und Bedienung auswählen.");
             return;
         }
@@ -469,13 +491,18 @@ class NewOrderDialog extends Dialog {
         String note = orderNote.getValue() == null || orderNote.getValue().isBlank() ? null
                 : orderNote.getValue().trim();
         try {
-            orders.submit(new SubmitOrder(UUID.randomUUID(), selectedTable.getId(), note, items),
-                    waiter.getValue().getId());
+            if (addition == null) {
+                orders.submit(new SubmitOrder(UUID.randomUUID(), selectedTable.getId(), note, items),
+                        waiter.getValue().getId());
+            } else {
+                orders.addItems(addition.orderId(), new AddItems(addition.submissionNo(), items));
+            }
         } catch (OrderRejectedException | OrderConflictException e) {
             Notification.show("Bestellung nicht angelegt: " + e.getMessage(), 8000, Notification.Position.MIDDLE);
             return;
         }
-        Notification.show("Bestellung für Tisch " + selectedTable.getLabel() + " angelegt.", 4000,
+        Notification.show((addition == null ? "Bestellung für Tisch " : "Nachbestellung für Tisch ")
+                + selectedTable.getLabel() + " angelegt.", 4000,
                 Notification.Position.MIDDLE);
         onCreated.run();
         close();

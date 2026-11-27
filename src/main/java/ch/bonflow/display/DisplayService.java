@@ -123,7 +123,7 @@ public class DisplayService {
 
         List<OrderDetail.Item> items = order.items().stream().map(i -> {
             Article a = articleById.get(i.articleId());
-            return new OrderDetail.Item(i.quantity(), a == null ? "Artikel " + i.articleId() : a.getName(),
+            return new OrderDetail.Item(i.id(), i.quantity(), a == null ? "Artikel " + i.articleId() : a.getName(),
                     i.course(), i.modifierIds().stream().sorted()
                             .map(id -> modifierName.getOrDefault(id, "?")).toList(),
                     i.note(), i.submissionNo(), i.status() == ItemStatus.CANCELLED);

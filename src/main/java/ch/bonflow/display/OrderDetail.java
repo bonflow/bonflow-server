@@ -12,7 +12,7 @@ import ch.bonflow.routing.TicketStatus;
 public record OrderDetail(UUID id, String tableLabel, String waiterName, OrderStatus status, Instant createdAt,
         String note, List<Item> items, List<Ticket> tickets) {
 
-    public record Item(int quantity, String name, Integer course, List<String> modifiers, String note,
+    public record Item(long id, int quantity, String name, Integer course, List<String> modifiers, String note,
             int submissionNo, boolean cancelled) {
     }
 

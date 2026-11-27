@@ -35,6 +35,10 @@ public class Article extends AbstractEntity {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Temporarily not available: stays on the menu but cannot be ordered. */
+    @Column(name = "sold_out", nullable = false)
+    private boolean soldOut;
+
     @ManyToOne
     @JoinColumn(name = "station_override_id")
     private Station stationOverride;
@@ -80,6 +84,14 @@ public class Article extends AbstractEntity {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    public boolean isSoldOut() {
+        return soldOut;
+    }
+
+    public void setSoldOut(boolean soldOut) {
+        this.soldOut = soldOut;
     }
 
     public boolean isActive() {

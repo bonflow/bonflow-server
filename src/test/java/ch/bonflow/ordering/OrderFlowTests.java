@@ -141,6 +141,19 @@ class OrderFlowTests {
     }
 
     @Test
+    void soldOutArticlesCannotBeOrderedUntilTheyAreAvailableAgain() {
+        beer.setSoldOut(true);
+        articles.saveAndFlush(beer);
+
+        assertThatThrownBy(() -> orders.submit(order(UUID.randomUUID(), line(beer, 1)), waiterId))
+                .isInstanceOf(OrderRejectedException.class).hasMessageContaining("sold out");
+
+        beer.setSoldOut(false);
+        articles.saveAndFlush(beer);
+        assertThat(orders.submit(order(UUID.randomUUID(), line(beer, 1)), waiterId).created()).isTrue();
+    }
+
+    @Test
     void submitSplitsItemsIntoOneTicketPerStation() {
         OrderResult result = orders.submit(order(UUID.randomUUID(), line(schnitzel, 2), line(beer, 1),
                 line(beer, 3)), waiterId);

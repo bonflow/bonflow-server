@@ -62,7 +62,8 @@ public class MasterDataService {
                             return new MasterDataSnapshot.ArticleDto(a.getId(), a.getName(), a.getShortName(),
                                     a.getCategory().getId(), a.getPrice(),
                                     station == null ? null : station.getId(),
-                                    a.getModifierGroups().stream().map(ModifierGroup::getId).sorted().toList());
+                                    a.getModifierGroups().stream().map(ModifierGroup::getId).sorted().toList(),
+                                    a.isSoldOut());
                         })
                         .toList(),
                 modifierGroups.findAll().stream()

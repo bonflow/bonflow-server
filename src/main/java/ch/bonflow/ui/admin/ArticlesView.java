@@ -13,11 +13,13 @@ import ch.bonflow.masterdata.ModifierGroup;
 import ch.bonflow.masterdata.ModifierGroupRepository;
 import ch.bonflow.masterdata.Station;
 import ch.bonflow.masterdata.StationRepository;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -28,6 +30,7 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed({"ADMIN", "MANAGER"})
 public class ArticlesView extends CrudView<Article> {
 
+    private final ArticleRepository articles;
     private final ArticleCategoryRepository categories;
     private final StationRepository stations;
     private final ModifierGroupRepository modifierGroups;
@@ -36,11 +39,20 @@ public class ArticlesView extends CrudView<Article> {
             StationRepository stations, ModifierGroupRepository modifierGroups,
             MasterDataTransferService transfer) {
         super("Artikel", articles, Article::new);
+        this.articles = articles;
         this.categories = categories;
         this.stations = stations;
         this.modifierGroups = modifierGroups;
         enableTransfer(transfer, TransferSection.ARTICLES);
         init();
+        Button reset = new Button("Alle wieder verfügbar", e -> {
+            var soldOut = articles.findAll().stream().filter(Article::isSoldOut).toList();
+            soldOut.forEach(a -> a.setSoldOut(false));
+            articles.saveAll(soldOut);
+            Notification.show(soldOut.size() + " Artikel wieder verfügbar.", 3000, Notification.Position.BOTTOM_END);
+            refresh();
+        });
+        addComponentAtIndex(1, reset);
     }
 
     @Override
@@ -52,6 +64,22 @@ public class ArticlesView extends CrudView<Article> {
                 .setHeader("Station");
         grid.addColumn(Article::getPrice).setHeader("Preis");
         grid.addColumn(a -> a.isActive() ? "ja" : "nein").setHeader("Aktiv");
+        grid.addComponentColumn(a -> {
+            Checkbox soldOut = new Checkbox(a.isSoldOut());
+            soldOut.setAriaLabel("Ausverkauft: " + a.getName());
+            soldOut.addValueChangeListener(e -> {
+                if (!e.isFromClient()) {
+                    return;
+                }
+                Article fresh = articles.findById(a.getId()).orElseThrow();
+                fresh.setSoldOut(e.getValue());
+                articles.save(fresh);
+                a.setSoldOut(e.getValue());
+                Notification.show(a.getName() + (e.getValue() ? " ist ausverkauft." : " ist wieder verfügbar."),
+                        2500, Notification.Position.BOTTOM_END);
+            });
+            return soldOut;
+        }).setHeader("Ausverkauft").setAutoWidth(true).setFlexGrow(0);
     }
 
     @Override
@@ -69,7 +97,8 @@ public class ArticlesView extends CrudView<Article> {
         MultiSelectComboBox<ModifierGroup> groups = new MultiSelectComboBox<>("Modifier-Gruppen");
         groups.setItems(modifierGroups.findAll());
         groups.setItemLabelGenerator(ModifierGroup::getName);
-        Checkbox active = new Checkbox("Aktiv (ausverkauft = deaktivieren)");
+        Checkbox active = new Checkbox("Aktiv (nicht mehr im Sortiment = deaktivieren)");
+        Checkbox soldOut = new Checkbox("Ausverkauft (bleibt sichtbar, nicht bestellbar)");
 
         binder.forField(name).asRequired("Name erforderlich").bind(Article::getName, Article::setName);
         binder.forField(shortName).bind(Article::getShortName, Article::setShortName);
@@ -81,7 +110,8 @@ public class ArticlesView extends CrudView<Article> {
         binder.forField(override).bind(Article::getStationOverride, Article::setStationOverride);
         binder.forField(groups).bind(Article::getModifierGroups, Article::setModifierGroups);
         binder.forField(active).bind(Article::isActive, Article::setActive);
-        form.add(name, shortName, category, price, override, groups, active);
+        binder.forField(soldOut).bind(Article::isSoldOut, Article::setSoldOut);
+        form.add(name, shortName, category, price, override, groups, active, soldOut);
     }
 
     @Override

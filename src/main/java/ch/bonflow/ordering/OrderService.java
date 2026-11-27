@@ -208,6 +208,9 @@ public class OrderService {
             if (article == null || !article.isActive()) {
                 throw new OrderRejectedException("Unknown or inactive article " + line.articleId());
             }
+            if (article.isSoldOut()) {
+                throw new OrderRejectedException("Article '" + article.getName() + "' is sold out");
+            }
             Station station = article.resolveStation();
             if (station == null) {
                 throw new OrderRejectedException("Article '" + article.getName() + "' has no station assigned");

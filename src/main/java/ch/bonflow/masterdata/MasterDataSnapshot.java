@@ -33,7 +33,7 @@ public record MasterDataSnapshot(
 
     /** {@code stationId} is already resolved: article override, else the category's default (may be null). */
     public record ArticleDto(long id, String name, String shortName, long categoryId, BigDecimal price,
-            Long stationId, List<Long> modifierGroupIds) {
+            Long stationId, List<Long> modifierGroupIds, boolean soldOut) {
     }
 
     public record ModifierGroupDto(long id, String name, boolean multiSelect, List<ModifierDto> modifiers) {

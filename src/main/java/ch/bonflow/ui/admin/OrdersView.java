@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import ch.bonflow.display.DisplayService;
@@ -14,7 +15,10 @@ import ch.bonflow.masterdata.ArticleRepository;
 import ch.bonflow.masterdata.SettingsService;
 import ch.bonflow.masterdata.DiningTable;
 import ch.bonflow.masterdata.DiningTableRepository;
+import ch.bonflow.ordering.OrderConflictException;
 import ch.bonflow.ordering.OrderFilter;
+import ch.bonflow.ordering.OrderRejectedException;
+import ch.bonflow.ordering.OrderView;
 import ch.bonflow.ordering.OrderService;
 import ch.bonflow.ordering.OrderStatus;
 import ch.bonflow.ordering.OrderSummary;
@@ -24,12 +28,14 @@ import ch.bonflow.users.AppUserRepository;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -51,6 +57,12 @@ public class OrdersView extends VerticalLayout {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("dd.MM. HH:mm");
     private static final DateTimeFormatter SECONDS = DateTimeFormatter.ofPattern("HH:mm:ss");
 
+    private final DiningTableRepository tableRepository;
+    private final AreaRepository areaRepository;
+    private final AppUserRepository userRepository;
+    private final ArticleCategoryRepository categoryRepository;
+    private final ArticleRepository articleRepository;
+    private final SettingsService settingsService;
     private final OrderService orders;
     private final DisplayService display;
     private final PrintAdminService printAdmin;
@@ -64,6 +76,12 @@ public class OrdersView extends VerticalLayout {
     public OrdersView(OrderService orders, DisplayService display, PrintAdminService printAdmin,
             DiningTableRepository tables, AppUserRepository users, ArticleRepository articles,
             AreaRepository areas, ArticleCategoryRepository categories, SettingsService settings) {
+        this.tableRepository = tables;
+        this.areaRepository = areas;
+        this.userRepository = users;
+        this.categoryRepository = categories;
+        this.articleRepository = articles;
+        this.settingsService = settings;
         this.orders = orders;
         this.display = display;
         this.printAdmin = printAdmin;
@@ -95,7 +113,7 @@ public class OrdersView extends VerticalLayout {
 
         Button create = new Button("Neue Bestellung", VaadinIcon.PLUS.create(),
                 e -> new NewOrderDialog(orders, tables, areas, users, categories, articles, settings.coursesEnabled(),
-                        this::refresh).open());
+                        null, this::refresh).open());
         create.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         add(new H2("Bestellungen"), create, filters, grid,
@@ -133,6 +151,18 @@ public class OrdersView extends VerticalLayout {
             items.addColumn(i -> i.note() == null ? "" : i.note()).setHeader("Notiz");
             items.addColumn(i -> i.course() == null ? "" : "Gang " + i.course()).setHeader("Gang");
             items.addColumn(OrderDetail.Item::submissionNo).setHeader("Nr.");
+            boolean open = detail.status() == OrderStatus.SUBMITTED;
+            if (open) {
+                items.addComponentColumn(item -> {
+                    if (item.cancelled()) {
+                        return new Span();
+                    }
+                    Button cancel = new Button("Stornieren", VaadinIcon.CLOSE_SMALL.create(),
+                            e -> confirmCancel(orderId, item, render[0]));
+                    cancel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
+                    return cancel;
+                }).setHeader("").setAutoWidth(true).setFlexGrow(0);
+            }
             items.setItems(detail.items());
             items.setAllRowsVisible(true);
 
@@ -158,14 +188,58 @@ public class OrdersView extends VerticalLayout {
             tickets.setItems(detail.tickets());
             tickets.setAllRowsVisible(true);
 
-            dialog.add(new VerticalLayout(
+            VerticalLayout content = new VerticalLayout(
                     new Paragraph("Bedienung: " + detail.waiterName() + " · Status: " + label(detail.status())
-                            + (detail.note() == null ? "" : " · Notiz: " + detail.note())),
-                    new H3("Positionen"), items, new H3("Tickets"), tickets));
+                            + (detail.note() == null ? "" : " · Notiz: " + detail.note())));
+            if (open) {
+                Button addItems = new Button("Positionen nachbestellen", VaadinIcon.PLUS.create(),
+                        e -> openAddition(orderId, render[0]));
+                addItems.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+                content.add(addItems);
+            }
+            content.add(new H3("Positionen"), items, new H3("Tickets"), tickets);
+            dialog.add(content);
         };
         render[0].run();
         dialog.getFooter().add(new Button("Schliessen", e -> dialog.close()));
         dialog.open();
+    }
+
+    private void confirmCancel(UUID orderId, OrderDetail.Item item, Runnable afterwards) {
+        ConfirmDialog confirm = new ConfirmDialog();
+        confirm.setHeader("Position stornieren?");
+        confirm.setText(item.quantity() + "× " + item.name() + " wird storniert. War sie schon an der Station "
+                + "gedruckt, entsteht dort ein Storno-Bon.");
+        confirm.setCancelable(true);
+        confirm.setCancelText("Abbrechen");
+        confirm.setConfirmText("Stornieren");
+        confirm.setConfirmButtonTheme("error primary");
+        confirm.addConfirmListener(e -> {
+            try {
+                orders.cancelItems(orderId, Set.of(item.id()));
+            } catch (OrderRejectedException | OrderConflictException ex) {
+                Notification.show("Nicht storniert: " + ex.getMessage(), 6000, Notification.Position.MIDDLE);
+            }
+            afterwards.run();
+            refresh();
+        });
+        confirm.open();
+    }
+
+    private void openAddition(UUID orderId, Runnable afterwards) {
+        OrderView order = orders.get(orderId);
+        int nextSubmission = order.items().stream().mapToInt(OrderView.ItemView::submissionNo).max().orElse(0) + 1;
+        DiningTable table = tableRepository.findById(order.tableId()).orElse(null);
+        if (table == null) {
+            Notification.show("Tisch nicht gefunden.", 4000, Notification.Position.MIDDLE);
+            return;
+        }
+        new NewOrderDialog(orders, tableRepository, areaRepository, userRepository, categoryRepository,
+                articleRepository, settingsService.coursesEnabled(), new NewOrderDialog.Addition(orderId, table,
+                        nextSubmission), () -> {
+                    afterwards.run();
+                    refresh();
+                }).open();
     }
 
     private static String label(OrderStatus status) {

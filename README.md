@@ -50,7 +50,8 @@ docker compose up -d --build
 ```
 
 Starts the app, PostgreSQL and a Caddy reverse proxy with LAN HTTPS (edit
-`docker/caddy/Caddyfile` for your hostname).
+`docker/caddy/Caddyfile` for your hostname). Step by step, including certificates and the first
+login: [docs/setup-caddy.md](docs/setup-caddy.md).
 
 ### Minimal example: server and database
 

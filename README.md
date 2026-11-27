@@ -121,6 +121,11 @@ completion), routing to stations, ESC/POS printing with outbox and retry, statio
 live push, order history with reprint, admin UI including accounts (admin, manager, one login
 per station device).
 
+## Backup
+
+The repo's `docker-compose.yml` includes a `backup` service (daily database dump, 14 days kept).
+How to copy dumps off the machine and how to restore: [docs/backup.md](docs/backup.md).
+
 ## Release
 
 Push a tag `vX.Y.Z`: the `release` workflow runs the tests, creates a GitHub release with the
